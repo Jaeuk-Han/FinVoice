@@ -27,6 +27,7 @@ def _upload_to_storage(data: bytes, key: str) -> str:
         aws_secret_access_key=config.get_env("NCP_OS_SECRET_KEY"),
     )
     client.put_object(Bucket=bucket, Key=key, Body=data, ContentType="audio/mpeg", ACL="public-read")
+    # path-style 공개 URL. NCP 콘솔에서 엔드포인트/접근 방식 확정 후 필요시 조정.
     return f"{endpoint}/{bucket}/{key}"
 
 def synthesize_and_upload(text: str, key: str) -> str | None:

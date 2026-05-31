@@ -21,6 +21,7 @@ def translate_text(text: str) -> str:
     return _call_papago(text)
 
 def translate_articles(articles: list[dict]) -> list[dict]:
+    """각 dict를 제자리에서 변경(in-place mutation)하고 동일 리스트를 반환한다."""
     for a in articles:
         a["title_ko"] = translate_text(a.get("title_en", ""))
         a["body_ko"] = translate_text(a.get("body_en", ""))

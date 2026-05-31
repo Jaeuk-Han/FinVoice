@@ -39,7 +39,10 @@ def _extract_json(text: str) -> dict:
     end = text.rfind("}")
     if start == -1 or end == -1:
         return {"summary": text.strip(), "sentiment": "neutral"}
-    return json.loads(text[start:end + 1])
+    try:
+        return json.loads(text[start:end + 1])
+    except json.JSONDecodeError:
+        return {"summary": text.strip(), "sentiment": "neutral"}
 
 def summarize_symbol(company: str, articles: list[dict]) -> dict:
     raw = _call_clova_studio(build_prompt(company, articles))

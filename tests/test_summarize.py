@@ -22,3 +22,10 @@ def test_summarize_symbol_defaults_neutral_on_bad_sentiment(monkeypatch):
     monkeypatch.setattr(summarize, "_call_clova_studio", lambda prompt: fake)
     result = summarize.summarize_symbol("Apple", ARTS)
     assert result["sentiment"] == "neutral"
+
+def test_summarize_symbol_falls_back_on_malformed_json(monkeypatch):
+    """_call_clova_studio가 braces를 포함하지만 파싱 불가한 JSON을 반환할 때 neutral로 fallback."""
+    fake = '{not valid json at all}'
+    monkeypatch.setattr(summarize, "_call_clova_studio", lambda prompt: fake)
+    result = summarize.summarize_symbol("Apple", ARTS)
+    assert result["sentiment"] == "neutral"

@@ -1,4 +1,5 @@
 import hashlib
+from datetime import date, timedelta
 import httpx
 from app import config
 
@@ -9,7 +10,8 @@ def _call_news_api(symbol: str) -> list[dict]:
     key = config.get_env("NEWS_API_KEY")
     # 최근 뉴스 조회 (날짜 범위는 호출 측에서 고정 기간 사용)
     url = f"{NEWS_API_BASE}/company-news"
-    params = {"symbol": symbol, "from": "2026-05-24", "to": "2026-05-31", "token": key}
+    today = date.today()
+    params = {"symbol": symbol, "from": (today - timedelta(days=7)).isoformat(), "to": today.isoformat(), "token": key}
     resp = httpx.get(url, params=params, timeout=10.0)
     resp.raise_for_status()
     return resp.json()
@@ -32,14 +34,15 @@ def dedupe(articles: list[dict]) -> list[dict]:
     seen = set()
     out = []
     for a in articles:
-        if a["url_hash"] in seen:
+        if a.get("url_hash", "") in seen:
             continue
-        seen.add(a["url_hash"])
+        seen.add(a.get("url_hash", ""))
         out.append(a)
     return out
 
 def fetch_symbol(symbol: str, limit: int = None) -> list[dict]:
-    limit = limit or config.ARTICLES_PER_SYMBOL
+    if limit is None:
+        limit = config.ARTICLES_PER_SYMBOL
     raw = _call_news_api(symbol)
     articles = dedupe(parse_articles(raw))
     return articles[:limit]

@@ -1,0 +1,17 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<title>{{ briefing.briefing_date }} 브리핑</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<a href="/">← 목록</a>
+<h1>{{ briefing.briefing_date }} 증시 브리핑</h1>
+{% for item in items %}
+  <section>
+    <h2>{{ item.company }} ({{ item.symbol }}) <span class="s-{{ item.sentiment }}">{{ item.sentiment }}</span></h2>
+    <p>{{ item.summary_ko }}</p>
+    {% if item.audio_url %}<audio controls src="{{ item.audio_url }}"></audio>{% endif %}
+    <details><summary>출처</summary><ul>
+      {% for a in item.articles %}<li><a href="{{ a.url }}" target="_blank">{{ a.title_ko or a.title_en }}</a> ({{ a.source_name }})</li>{% endfor %}
+    </ul></details>
+  </section>
+{% endfor %}
+<footer>※ 본 서비스는 정보 제공용이며 투자 조언이 아닙니다.</footer>
+</body></html>

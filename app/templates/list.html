@@ -1,0 +1,15 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<title>증시 브리핑</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<h1>📈 해외 증시 브리핑</h1>
+<form action="/search" method="post">
+  <input name="symbol" placeholder="종목 심볼 (예: AAPL)" required>
+  <button type="submit">검색</button>
+</form>
+<ul>
+{% for b in briefings %}
+  <li><a href="/briefing/{{ b.id }}">{{ b.briefing_date }} 브리핑</a></li>
+{% endfor %}
+</ul>
+<footer>※ 본 서비스는 정보 제공용이며 투자 조언이 아닙니다.</footer>
+</body></html>

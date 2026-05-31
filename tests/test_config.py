@@ -1,3 +1,4 @@
+import pytest
 from app import config
 
 def test_watchlist_is_fixed_nonempty_list():
@@ -13,6 +14,5 @@ def test_env_helper_reads_value(monkeypatch):
 
 def test_env_helper_raises_when_missing(monkeypatch):
     monkeypatch.delenv("DEFINITELY_MISSING", raising=False)
-    import pytest
     with pytest.raises(RuntimeError):
         config.get_env("DEFINITELY_MISSING")

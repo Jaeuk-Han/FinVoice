@@ -15,7 +15,7 @@ def process_symbol(symbol: str, company: str, item_date: str) -> dict:
         key = f"audio/{item_date}/{symbol}.mp3"
         audio_url = tts.synthesize_and_upload(summary["summary_ko"], key)
     except Exception as e:  # TTS 실패는 비치명적
-        log.warning("TTS 실패 %s: %s", symbol, e)
+        log.warning("TTS 실패 %s: %s", symbol, e, exc_info=True)
 
     return {
         "symbol": symbol,

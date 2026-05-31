@@ -7,9 +7,10 @@ class FakeCursor:
     def fetchall(self): return []
 
 class FakeConn:
-    def __init__(self): self.cur = FakeCursor(); self.committed = 0
+    def __init__(self): self.cur = FakeCursor(); self.committed = 0; self.rolled_back = 0
     def cursor(self): return self.cur
     def commit(self): self.committed += 1
+    def rollback(self): self.rolled_back += 1
     def close(self): pass
 
 def test_run_batch_continues_on_symbol_failure(monkeypatch):
@@ -27,3 +28,4 @@ def test_run_batch_continues_on_symbol_failure(monkeypatch):
     ok, failed = batch_job.run_batch(conn, "2026-05-31")
     assert ok == 2 and failed == 1          # TSLA 실패해도 나머지 처리
     assert calls["n"] == 3
+    assert conn.rolled_back == 1            # TSLA 실패 시 정확히 한 번 롤백

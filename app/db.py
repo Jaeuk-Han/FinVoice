@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pymysql
 from app import config
 
@@ -22,7 +24,11 @@ def insert_briefing(cur, briefing_date, market_summary, market_audio_url) -> int
         "market_summary=VALUES(market_summary), market_audio_url=VALUES(market_audio_url)",
         (briefing_date, market_summary, market_audio_url),
     )
-    return cur.lastrowid
+    row_id = cur.lastrowid
+    if not row_id:
+        cur.execute("SELECT id FROM briefing WHERE briefing_date=%s", (briefing_date,))
+        row_id = cur.fetchone()["id"]
+    return row_id
 
 
 def insert_item(cur, briefing_id, symbol, company, summary_ko, sentiment,
@@ -36,11 +42,13 @@ def insert_item(cur, briefing_id, symbol, company, summary_ko, sentiment,
 
 
 def insert_article(cur, item_id, art: dict):
+    ts = art.get("published_at")
+    published_dt = datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None) if isinstance(ts, (int, float)) else ts
     cur.execute(
-        "INSERT INTO article (item_id, title_en, title_ko, url, source_name, url_hash) "
-        "VALUES (%s,%s,%s,%s,%s,%s)",
+        "INSERT INTO article (item_id, title_en, title_ko, url, source_name, published_at, url_hash) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s)",
         (item_id, art.get("title_en"), art.get("title_ko"), art.get("url"),
-         art.get("source_name"), art.get("url_hash")),
+         art.get("source_name"), published_dt, art.get("url_hash")),
     )
 
 

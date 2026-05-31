@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS stock_briefing CHARACTER SET utf8mb4;
+CREATE DATABASE IF NOT EXISTS stock_briefing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE stock_briefing;
 
 CREATE TABLE IF NOT EXISTS briefing (
@@ -35,5 +35,6 @@ CREATE TABLE IF NOT EXISTS article (
     published_at DATETIME NULL,
     url_hash CHAR(64),
     FOREIGN KEY (item_id) REFERENCES briefing_item(id),
+    -- non-unique: same article URL may legitimately relate to multiple symbols/items; dedup is done in-memory per fetch
     KEY idx_url_hash (url_hash)
 );

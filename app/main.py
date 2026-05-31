@@ -49,6 +49,8 @@ def search(request: Request, symbol: str = Form(...), conn=Depends(get_conn)):
     item = db.find_cached_item(cur, symbol, today)
     if item:
         item = dict(item)
+        if item.get("sentiment") not in {"positive", "neutral", "negative"}:
+            item["sentiment"] = "neutral"
         item["articles"] = db.get_articles_for_item(cur, item["id"])
     else:
         result = runner.process_symbol(symbol, _COMPANY[symbol], today)

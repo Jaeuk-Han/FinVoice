@@ -20,17 +20,22 @@ def test_search_returns_cached_item(monkeypatch):
     main.app.dependency_overrides[main.get_conn] = lambda: FakeConn(cur)
 
     # process_symbol 은 호출되면 안 됨(캐시 히트)
-    monkeypatch.setattr(main.runner, "process_symbol",
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not run")))
+    called = []
+    def must_not_run(*a, **k):
+        called.append(1)
+        return {}
+    monkeypatch.setattr(main.runner, "process_symbol", must_not_run)
     client = TestClient(main.app)
     resp = client.post("/search", data={"symbol": "AAPL"})
     assert resp.status_code == 200
     assert "캐시요약" in resp.text
+    assert called == []
     main.app.dependency_overrides.clear()
 
 def test_search_runs_pipeline_on_cache_miss(monkeypatch):
     cur = FakeCursor(one=None, all=[])
-    main.app.dependency_overrides[main.get_conn] = lambda: FakeConn(cur)
+    fake_conn = FakeConn(cur)
+    main.app.dependency_overrides[main.get_conn] = lambda: fake_conn
     monkeypatch.setattr(main.runner, "process_symbol",
                         lambda symbol, company, item_date: {
                             "symbol": symbol, "company": company, "summary_ko": "새요약",
@@ -39,4 +44,5 @@ def test_search_runs_pipeline_on_cache_miss(monkeypatch):
     resp = client.post("/search", data={"symbol": "AAPL"})
     assert resp.status_code == 200
     assert "새요약" in resp.text
+    assert fake_conn.committed == 1
     main.app.dependency_overrides.clear()

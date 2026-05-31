@@ -13,14 +13,14 @@ def _patch_pipeline(monkeypatch, tts_raises=False):
         monkeypatch.setattr(runner.tts, "synthesize_and_upload", boom)
     else:
         monkeypatch.setattr(runner.tts, "synthesize_and_upload",
-                            lambda text, key: "http://cdn/a.mp3")
+                            lambda text, key: "https://cdn/a.mp3")
 
 def test_process_symbol_full_success(monkeypatch):
     _patch_pipeline(monkeypatch)
     result = runner.process_symbol("AAPL", "Apple", "2026-05-31")
     assert result["summary_ko"] == "요약"
     assert result["sentiment"] == "positive"
-    assert result["audio_url"] == "http://cdn/a.mp3"
+    assert result["audio_url"] == "https://cdn/a.mp3"
     assert len(result["articles"]) == 1
     assert result["articles"][0]["title_ko"] == "가"
 

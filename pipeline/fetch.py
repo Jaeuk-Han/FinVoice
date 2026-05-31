@@ -20,6 +20,8 @@ def parse_articles(raw: list[dict]) -> list[dict]:
     out = []
     for r in raw:
         url = r.get("url", "")
+        if not url.startswith(("http://", "https://")):
+            url = ""
         out.append({
             "title_en": r.get("headline", ""),
             "url": url,

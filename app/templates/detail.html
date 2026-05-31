@@ -9,7 +9,7 @@
     <p>{{ item.summary_ko }}</p>
     {% if item.audio_url %}<audio controls src="{{ item.audio_url }}"></audio>{% endif %}
     <details><summary>출처</summary><ul>
-      {% for a in item.articles %}<li><a href="{{ a.url }}" target="_blank">{{ a.title_ko or a.title_en }}</a> ({{ a.source_name }})</li>{% endfor %}
+      {% for a in item.articles %}<li><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.title_ko or a.title_en }}</a> ({{ a.source_name }})</li>{% endfor %}
     </ul></details>
   </section>
 {% endfor %}

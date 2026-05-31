@@ -17,6 +17,9 @@ def process_symbol(symbol: str, company: str, item_date: str) -> dict:
     except Exception as e:  # TTS 실패는 비치명적
         log.warning("TTS 실패 %s: %s", symbol, e, exc_info=True)
 
+    if audio_url and not audio_url.startswith("https://"):
+        audio_url = None
+
     return {
         "symbol": symbol,
         "company": company,

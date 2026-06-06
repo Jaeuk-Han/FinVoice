@@ -1,8 +1,9 @@
 import json
+import uuid
 import httpx
 from app import config
 
-CLOVA_URL = "https://clovastudio.stream.ntruss.com/testapp/v1/chat-completions/HCX-003"
+CLOVA_URL = "https://clovastudio.stream.ntruss.com/v1/chat-completions/HCX-003"
 VALID_SENTIMENT = {"positive", "neutral", "negative"}
 
 def build_prompt(company: str, articles: list[dict]) -> str:
@@ -18,8 +19,8 @@ def build_prompt(company: str, articles: list[dict]) -> str:
 def _call_clova_studio(prompt: str) -> str:
     """CLOVA Studio 호출. 테스트에서 mock 된다. 반환은 모델 답변 문자열."""
     headers = {
-        "X-NCP-CLOVASTUDIO-API-KEY": config.get_env("CLOVA_STUDIO_API_KEY"),
-        "X-NCP-APIGW-API-KEY": config.get_env("NCP_APIGW_KEY"),
+        "Authorization": f"Bearer {config.get_env('CLOVA_STUDIO_API_KEY')}",
+        "X-NCP-CLOVASTUDIO-REQUEST-ID": uuid.uuid4().hex,
         "Content-Type": "application/json",
     }
     body = {

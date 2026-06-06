@@ -1,17 +1,205 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8">
-<title>{{ briefing.briefing_date }} 브리핑</title><link rel="stylesheet" href="/static/style.css"></head>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% if is_search %}
+  <title>{{ items[0].company }} ({{ items[0].symbol }}) — FinVoice</title>
+  {% else %}
+  <title>{{ briefing.briefing_date }} 브리핑 — FinVoice</title>
+  {% endif %}
+  <link rel="stylesheet" href="/static/style.css">
+</head>
 <body>
-<a href="/">← 목록</a>
-<h1>{{ briefing.briefing_date }} 증시 브리핑</h1>
-{% for item in items %}
-  <section>
-    <h2>{{ item.company }} ({{ item.symbol }}) <span class="s-{{ item.sentiment }}">{{ item.sentiment }}</span></h2>
-    <p>{{ item.summary_ko }}</p>
-    {% if item.audio_url %}<audio controls src="{{ item.audio_url }}"></audio>{% endif %}
-    <details><summary>출처</summary><ul>
-      {% for a in item.articles %}<li><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.title_ko or a.title_en }}</a> ({{ a.source_name }})</li>{% endfor %}
-    </ul></details>
-  </section>
-{% endfor %}
-<footer>※ 본 서비스는 정보 제공용이며 투자 조언이 아닙니다.</footer>
-</body></html>
+<div class="app" id="app">
+
+  <header class="appbar">
+    <div class="appbar-in">
+      <div class="brand">
+        <span class="brand-mark">FinVoice</span>
+        <span class="brand-sub">해외 금융뉴스 음성 브리핑</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <div class="detail-head">
+      <div class="detail-date">
+        <a href="/">← 목록</a>
+        &nbsp;·&nbsp;
+        {% if is_search %}
+        {{ briefing.briefing_date }} · 온디맨드 검색 결과
+        {% else %}
+        {{ briefing.briefing_date }} 브리핑
+        {% endif %}
+      </div>
+      <h1 class="detail-title">
+        {% if is_search %}
+        {{ items[0].company }}
+        {% else %}
+        오늘의 시장 브리핑
+        {% endif %}
+      </h1>
+    </div>
+
+    {% if not is_search and briefing.market_summary %}
+    <div class="overview">
+      <div class="ov-label">시장 전반 요약</div>
+      <p class="ov-text">{{ briefing.market_summary }}</p>
+      <div class="ov-foot">
+        <span>종목 <b>{{ items | length }}</b></span>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if not is_search %}
+    <div class="sec-head">
+      <span class="sec-title">종목별 요약</span>
+    </div>
+    {% endif %}
+
+    <div id="cardSlot">
+    {% for item in items %}
+    {% set sentiment = item.sentiment if item.sentiment in ('positive', 'negative', 'neutral') else 'neutral' %}
+    <article class="card lay-a fade-in">
+
+      <div class="card-top">
+        <div>
+          <div class="co-name">{{ item.company }}</div>
+          <div class="co-symbol">{{ item.symbol }}</div>
+        </div>
+        <span class="badge s-{{ sentiment }}">
+          <span class="dot"></span>
+          {% if sentiment == 'positive' %}긍정{% elif sentiment == 'negative' %}부정{% else %}중립{% endif %}
+        </span>
+      </div>
+
+      <div class="zone">
+        <div class="zone-label">요약</div>
+        <p class="summary-text">{{ item.summary_ko }}</p>
+      </div>
+
+      {% if item.audio_url %}
+      <div class="zone">
+        <div class="zone-label">음성 브리핑</div>
+        <div class="player" id="player-{{ loop.index0 }}">
+          <button class="play-btn" aria-label="음성 재생" data-idx="{{ loop.index0 }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
+          </button>
+          <div class="player-meta">
+            <div class="player-track"><i id="bar-{{ loop.index0 }}"></i></div>
+            <div class="player-time">
+              <span id="cur-{{ loop.index0 }}">0:00</span>
+              <span id="dur-{{ loop.index0 }}">--:--</span>
+            </div>
+          </div>
+        </div>
+        <audio id="audio-{{ loop.index0 }}" src="{{ item.audio_url }}" preload="none" style="display:none"></audio>
+      </div>
+      {% endif %}
+
+      {% if item.articles %}
+      <div class="zone">
+        <div class="zone-label">근거</div>
+        <details class="sources">
+          <summary>
+            근거 출처 {{ item.articles | length }}건
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="source-list">
+            {% for a in item.articles %}
+            <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+              <span>{{ a.title_ko or a.title_en }}</span>
+              <span class="src-host">{{ a.source_name }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </details>
+      </div>
+      {% endif %}
+
+      {% if is_search %}
+      <div class="zone">
+        <div class="zone-label">다음 행동</div>
+        <div class="actions">
+          <a class="btn btn-primary" href="/">다른 종목 검색</a>
+          <a class="btn btn-ghost" href="/">목록으로</a>
+        </div>
+      </div>
+      {% endif %}
+
+    </article>
+    {% endfor %}
+    </div>
+
+    {% if not is_search %}
+    <div style="margin-top:16px">
+      <a class="btn btn-ghost" href="/" style="display:flex;width:100%">← 목록으로 돌아가기</a>
+    </div>
+    {% endif %}
+
+    <div class="disclaimer" role="contentinfo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span>본 서비스는 정보 제공용이며 투자 조언이 아닙니다. 실제 투자 결정은 전문가와 상담하세요.</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById('app');
+  function updateMobile() {
+    if (app) app.classList.toggle('is-mobile', window.innerWidth <= 480);
+  }
+  updateMobile();
+  window.addEventListener('resize', updateMobile);
+
+  var PLAY_ICON  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>';
+  var PAUSE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+
+  function fmt(s) {
+    s = Math.floor(s || 0);
+    return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
+  }
+
+  document.querySelectorAll('[data-idx]').forEach(function (btn) {
+    var idx   = btn.dataset.idx;
+    var audio = document.getElementById('audio-' + idx);
+    var bar   = document.getElementById('bar-' + idx);
+    var cur   = document.getElementById('cur-' + idx);
+    var dur   = document.getElementById('dur-' + idx);
+    if (!audio) return;
+
+    audio.addEventListener('loadedmetadata', function () {
+      if (dur) dur.textContent = fmt(audio.duration);
+    });
+    audio.addEventListener('timeupdate', function () {
+      if (cur) cur.textContent = fmt(audio.currentTime);
+      if (bar && audio.duration) bar.style.width = (audio.currentTime / audio.duration * 100) + '%';
+    });
+    audio.addEventListener('ended', function () {
+      btn.innerHTML = PLAY_ICON;
+      btn.setAttribute('aria-label', '음성 재생');
+      if (bar) bar.style.width = '0%';
+      if (cur) cur.textContent = '0:00';
+    });
+
+    btn.addEventListener('click', function () {
+      if (audio.paused) {
+        audio.play();
+        btn.innerHTML = PAUSE_ICON;
+        btn.setAttribute('aria-label', '일시 정지');
+      } else {
+        audio.pause();
+        btn.innerHTML = PLAY_ICON;
+        btn.setAttribute('aria-label', '음성 재생');
+      }
+    });
+  });
+}());
+</script>
+</body>
+</html>

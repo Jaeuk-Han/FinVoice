@@ -1,6 +1,6 @@
-# SERVER_RUNBOOK.md — NCP 서버 반영 런북
+# SERVER_RUNBOOK.md — FinVoice NCP 서버 반영 런북
 
-해외 금융뉴스 음성 브리핑 서비스를 **NCP Server(VM, Ubuntu)** 에 배포·운영하는 절차서.
+**FinVoice**(해외 금융뉴스 음성 브리핑 서비스)를 **NCP Server(VM, Ubuntu)** 에 배포·운영하는 절차서.
 
 > ⚠️ **이 문서에는 실제 값(서버 주소·계정명·키 경로·비밀번호·API 키)을 절대 적지 않는다.**
 > 모두 `<자리표시자>`로만 둔다. 실제 비밀값은 서버의 `.env` 파일에만 존재한다. (CLAUDE.md §7·§8)
@@ -37,9 +37,11 @@
 
 ```
 NEWS_API_KEY
-NCP_APIGW_KEY_ID
-NCP_APIGW_KEY
-CLOVA_STUDIO_API_KEY
+NCP_APIGW_KEY_ID            # 파파고 앱 Client ID (음성 1앱 통합 시 음성도 이 키 사용)
+NCP_APIGW_KEY              # 파파고 앱 Client Secret
+NCP_VOICE_KEY_ID          # (선택) CLOVA Voice 를 별도 앱으로 등록한 경우만, 없으면 APIGW 키로 폴백
+NCP_VOICE_KEY             # (선택) 위와 동일
+CLOVA_STUDIO_API_KEY      # CLOVA Studio nv- Bearer 키 (별도 콘솔)
 NCP_OS_ACCESS_KEY
 NCP_OS_SECRET_KEY
 NCP_OS_ENDPOINT

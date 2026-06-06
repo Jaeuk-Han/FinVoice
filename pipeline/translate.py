@@ -1,7 +1,7 @@
 import httpx
 from app import config
 
-PAPAGO_URL = "https://naveropenapi.apigw.ntruss.com/nmt/v1/translation"
+PAPAGO_URL = "https://papago.apigw.ntruss.com/nmt/v1/translation"
 
 def _call_papago(text: str) -> str:
     """Papago 번역 호출. 테스트에서 mock 된다."""

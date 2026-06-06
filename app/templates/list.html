@@ -1,15 +1,121 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8">
-<title>증시 브리핑</title><link rel="stylesheet" href="/static/style.css"></head>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinVoice — 해외 금융뉴스 음성 브리핑</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
 <body>
-<h1>📈 해외 증시 브리핑</h1>
-<form action="/search" method="post">
-  <input name="symbol" placeholder="종목 심볼 (예: AAPL)" required>
-  <button type="submit">검색</button>
-</form>
-<ul>
-{% for b in briefings %}
-  <li><a href="/briefing/{{ b.id }}">{{ b.briefing_date }} 브리핑</a></li>
-{% endfor %}
-</ul>
-<footer>※ 본 서비스는 정보 제공용이며 투자 조언이 아닙니다.</footer>
-</body></html>
+<div class="app" id="app">
+
+  <header class="appbar">
+    <div class="appbar-in">
+      <div class="brand">
+        <span class="brand-mark">FinVoice</span>
+        <span class="brand-sub">해외 금융뉴스 음성 브리핑</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    {% if error %}
+    <div class="alert-banner" role="alert">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <form class="search" method="POST" action="/search" novalidate>
+      <label class="search-label" for="symInput">종목 심볼 검색</label>
+      <div class="search-row">
+        <div class="field" id="symField">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input id="symInput" name="symbol" type="text" autocomplete="off" spellcheck="false"
+            placeholder="예: TSLA — 대문자 자동 변환" aria-label="종목 심볼">
+        </div>
+        <button class="btn-submit" type="submit">브리핑 검색</button>
+      </div>
+      <div class="hint">
+        <span class="lbl">지원 종목</span>
+        {% for sym in supported %}
+        <button type="button" class="chip" data-sym="{{ sym }}">{{ sym }}</button>
+        {% endfor %}
+      </div>
+    </form>
+
+    {% if briefings %}
+    <div class="sec-head">
+      <span class="sec-title">날짜별 브리핑</span>
+    </div>
+    <div class="list">
+      {% for b in briefings %}
+      <a class="list-item" href="/briefing/{{ b.id }}">
+        <div class="li-date">
+          <div class="li-day">{{ (b.briefing_date | string)[8:] }}</div>
+          <div class="li-mon">{{ (b.briefing_date | string)[5:7] }}월</div>
+        </div>
+        <div class="li-body">
+          <div class="li-title">
+            {{ b.briefing_date }} 브리핑
+            {% if (b.briefing_date | string) == today %}
+            <span class="today-tag">오늘</span>
+            {% endif %}
+          </div>
+          {% if b.market_summary %}
+          <div class="li-summary">{{ b.market_summary }}</div>
+          {% endif %}
+        </div>
+        <span class="li-arrow" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="center-state" style="min-height:300px">
+      <div class="state-icon empty" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+      </div>
+      <div class="cs-title">아직 브리핑이 없습니다</div>
+      <div class="cs-text">새 브리핑이 준비되면 이곳에 표시됩니다. 위 검색창에서 종목을 직접 조회해보세요.</div>
+    </div>
+    {% endif %}
+
+    <div class="disclaimer" role="contentinfo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span>본 서비스는 정보 제공용이며 투자 조언이 아닙니다. 실제 투자 결정은 전문가와 상담하세요.</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById('app');
+  function updateMobile() {
+    if (app) app.classList.toggle('is-mobile', window.innerWidth <= 480);
+  }
+  updateMobile();
+  window.addEventListener('resize', updateMobile);
+
+  document.querySelectorAll('[data-sym]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var inp = document.getElementById('symInput');
+      if (inp) { inp.value = chip.dataset.sym; inp.focus(); }
+    });
+  });
+
+  var inp = document.getElementById('symInput');
+  if (inp) {
+    inp.addEventListener('input', function () {
+      var pos = this.selectionStart;
+      this.value = this.value.toUpperCase();
+      this.setSelectionRange(pos, pos);
+    });
+  }
+}());
+</script>
+</body>
+</html>

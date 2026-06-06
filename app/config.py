@@ -22,3 +22,14 @@ def get_env(key: str) -> str:
     if not value:
         raise RuntimeError(f"환경변수 {key} 가 설정되지 않았거나 빈 값입니다. .env 를 확인하세요.")
     return value
+
+
+def get_env_or(key: str, *fallback_keys: str) -> str:
+    """key 를 우선 조회하고, 비어있으면 fallback_keys 순서로 조회한다.
+    모두 비어있으면 에러. (예: 음성 전용 키가 없으면 공용 APIGW 키로 폴백)"""
+    for k in (key, *fallback_keys):
+        value = os.getenv(k)
+        if value:
+            return value
+    tried = ", ".join((key, *fallback_keys))
+    raise RuntimeError(f"환경변수 {tried} 중 설정된 값이 없습니다. .env 를 확인하세요.")

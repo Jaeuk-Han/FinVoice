@@ -1,17 +1,24 @@
+import os
 import time
 from datetime import date
 
 from fastapi import FastAPI, Form, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.sessions import SessionMiddleware
 
-from app import db, config
+from app import db, auth, config
 from pipeline import runner
+from pipeline import fetch as _fetch_module
 from pipeline.fetch import get_quote
 
 app = FastAPI(title="FinVoice")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-in-prod"),
+)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -34,6 +41,47 @@ def get_conn():
         yield conn
     finally:
         conn.close()
+
+
+def _current_user_id(request: Request):
+    return request.session.get("user_id")
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    return templates.TemplateResponse(request, "register.html", {"error": None})
+
+
+@app.post("/register", response_class=HTMLResponse)
+def register(request: Request, email: str = Form(...), password: str = Form(...), conn=Depends(get_conn)):
+    cur = conn.cursor()
+    if db.get_user_by_email(cur, email):
+        return templates.TemplateResponse(request, "register.html", {"error": "이미 사용 중인 이메일입니다."}, status_code=400)
+    db.create_user(cur, email, auth.hash_password(password))
+    conn.commit()
+    return RedirectResponse("/login", status_code=303)
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse(request, "login.html", {"error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login(request: Request, email: str = Form(...), password: str = Form(...), conn=Depends(get_conn)):
+    cur = conn.cursor()
+    user = db.get_user_by_email(cur, email)
+    if not user or not auth.verify_password(password, user["password_hash"]):
+        return templates.TemplateResponse(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다."}, status_code=401)
+    request.session["user_id"] = user["id"]
+    request.session["user_email"] = user["email"]
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/", status_code=303)
 
 
 @app.exception_handler(StarletteHTTPException)

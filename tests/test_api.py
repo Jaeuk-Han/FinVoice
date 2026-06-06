@@ -46,3 +46,38 @@ def test_search_runs_pipeline_on_cache_miss(monkeypatch):
     assert "새요약" in resp.text
     assert fake_conn.committed == 1
     main.app.dependency_overrides.clear()
+
+
+# ── Auth routes ──────────────────────────────────────────────────────
+
+def test_register_page_returns_200():
+    resp = TestClient(main.app).get("/register")
+    assert resp.status_code == 200
+    assert "회원가입" in resp.text
+
+
+def test_login_page_returns_200():
+    resp = TestClient(main.app).get("/login")
+    assert resp.status_code == 200
+    assert "로그인" in resp.text
+
+
+def test_register_creates_user_and_redirects(monkeypatch):
+    cur = FakeCursor(one=None, all=[])
+    main.app.dependency_overrides[main.get_conn] = lambda: FakeConn(cur)
+    monkeypatch.setattr(main.db, "get_user_by_email", lambda cur, email: None)
+    monkeypatch.setattr(main.db, "create_user", lambda cur, email, pw: 1)
+    resp = TestClient(main.app).post("/register", data={"email": "t@t.com", "password": "pass1234"}, follow_redirects=False)
+    assert resp.status_code in (302, 303)
+    main.app.dependency_overrides.clear()
+
+
+def test_login_bad_password_returns_form(monkeypatch):
+    cur = FakeCursor(one=None, all=[])
+    main.app.dependency_overrides[main.get_conn] = lambda: FakeConn(cur)
+    monkeypatch.setattr(main.db, "get_user_by_email", lambda cur, email: {"id": 1, "email": email, "password_hash": "bad"})
+    monkeypatch.setattr(main.auth, "verify_password", lambda p, h: False)
+    resp = TestClient(main.app).post("/login", data={"email": "t@t.com", "password": "wrong"})
+    assert resp.status_code == 401
+    assert "이메일 또는 비밀번호" in resp.text
+    main.app.dependency_overrides.clear()

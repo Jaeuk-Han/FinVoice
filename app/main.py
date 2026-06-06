@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 from datetime import date
 
 from fastapi import FastAPI, Form, Depends, Request, HTTPException
@@ -98,6 +99,32 @@ def watchlist_edit_page(request: Request, conn=Depends(get_conn)):
     })
 
 
+def _bg_generate_watchlist(pairs: list):
+    today = date.today().isoformat()
+    for sym, company in pairs:
+        try:
+            conn = db.get_connection()
+            cur = conn.cursor()
+            cached = db.find_cached_item(cur, sym, today)
+            conn.close()
+            if cached:
+                continue
+            result = runner.process_symbol(sym, company, today)
+            conn = db.get_connection()
+            cur = conn.cursor()
+            item_id = db.insert_item(
+                cur, None, sym, company,
+                result["summary_ko"], result["sentiment"],
+                result["audio_url"], today, "ondemand",
+            )
+            for art in result["articles"]:
+                db.insert_article(cur, item_id, art)
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+
 @app.post("/watchlist/edit", response_class=HTMLResponse)
 def watchlist_edit_save(request: Request, symbols: str = Form(default=""), conn=Depends(get_conn)):
     user_id = _current_user_id(request)
@@ -131,6 +158,7 @@ def watchlist_edit_save(request: Request, symbols: str = Form(default=""), conn=
     cur = conn.cursor()
     db.save_watchlist(cur, user_id, pairs)
     conn.commit()
+    threading.Thread(target=_bg_generate_watchlist, args=(pairs,), daemon=True).start()
     return RedirectResponse("/", status_code=303)
 
 

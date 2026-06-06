@@ -41,7 +41,7 @@
     {% endif %}
 
     <div class="wl-edit-box">
-      <p class="wl-desc">최대 6개 종목을 설정하세요. 심볼을 입력하고 Enter 또는 추가 버튼을 누르세요.</p>
+      <p class="wl-desc">최대 5개 종목을 설정하세요. 심볼을 입력하고 Enter 또는 추가 버튼을 누르세요.</p>
 
       <div class="wl-chips" id="wlChips">
         {% for w in watchlist %}
@@ -74,7 +74,7 @@
 
 <script>
 (function () {
-  var MAX = 6;
+  var MAX = 5;
   var chips = document.getElementById('wlChips');
   var input = document.getElementById('wlInput');
   var addBtn = document.getElementById('wlAddBtn');

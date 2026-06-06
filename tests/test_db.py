@@ -76,3 +76,48 @@ def test_insert_briefing_falls_back_when_lastrowid_zero():
     selects = [sql for sql, _ in cur.executed if sql.strip().upper().startswith("SELECT")]
     assert selects, "Expected a SELECT fallback query when lastrowid is 0"
     assert "briefing" in selects[0]
+
+
+# --- user / watchlist CRUD ---
+
+from app.db import create_user, get_user_by_email, get_watchlist, save_watchlist
+
+
+class _Cur:
+    def __init__(self): self.lastrowid = 7; self._rows = []; self.sqls = []
+    def execute(self, sql, params=None): self.sqls.append((sql, params))
+    def fetchone(self): return self._rows[0] if self._rows else None
+    def fetchall(self): return list(self._rows)
+
+
+def test_create_user_executes_insert():
+    cur = _Cur()
+    rid = create_user(cur, "a@b.com", "hash123")
+    assert rid == 7
+    sql, params = cur.sqls[0]
+    assert "INSERT INTO user" in sql
+    assert params == ("a@b.com", "hash123")
+
+
+def test_get_user_by_email_queries_correctly():
+    cur = _Cur()
+    cur._rows = [{"id": 1, "email": "a@b.com", "password_hash": "h"}]
+    result = get_user_by_email(cur, "a@b.com")
+    assert result["email"] == "a@b.com"
+    assert "WHERE email" in cur.sqls[0][0]
+
+
+def test_get_watchlist_returns_rows():
+    cur = _Cur()
+    cur._rows = [{"symbol": "AAPL", "company": "Apple"}, {"symbol": "TSLA", "company": "Tesla"}]
+    result = get_watchlist(cur, user_id=1)
+    assert len(result) == 2
+    assert result[0]["symbol"] == "AAPL"
+
+
+def test_save_watchlist_deletes_then_inserts():
+    cur = _Cur()
+    save_watchlist(cur, user_id=1, symbols=[("AAPL", "Apple"), ("TSLA", "Tesla")])
+    sqls = [s for s, _ in cur.sqls]
+    assert any("DELETE" in s for s in sqls)
+    assert any("INSERT" in s for s in sqls)

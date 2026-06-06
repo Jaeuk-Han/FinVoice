@@ -78,3 +78,33 @@ def get_items_for_briefing(cur, briefing_id):
 def get_articles_for_item(cur, item_id):
     cur.execute("SELECT * FROM article WHERE item_id=%s", (item_id,))
     return cur.fetchall()
+
+
+def create_user(cur, email: str, password_hash: str) -> int:
+    cur.execute(
+        "INSERT INTO user (email, password_hash) VALUES (%s, %s)",
+        (email, password_hash),
+    )
+    return cur.lastrowid
+
+
+def get_user_by_email(cur, email: str):
+    cur.execute("SELECT * FROM user WHERE email=%s", (email,))
+    return cur.fetchone()
+
+
+def get_watchlist(cur, user_id: int) -> list:
+    cur.execute(
+        "SELECT symbol, company FROM user_watchlist WHERE user_id=%s ORDER BY position",
+        (user_id,),
+    )
+    return cur.fetchall()
+
+
+def save_watchlist(cur, user_id: int, symbols: list) -> None:
+    cur.execute("DELETE FROM user_watchlist WHERE user_id=%s", (user_id,))
+    for i, (symbol, company) in enumerate(symbols):
+        cur.execute(
+            "INSERT INTO user_watchlist (user_id, symbol, company, position) VALUES (%s,%s,%s,%s)",
+            (user_id, symbol, company, i),
+        )

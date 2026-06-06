@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관심종목 편집 — FinVoice</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="appbar">
+    <div class="appbar-in">
+      <div class="brand">
+        <a href="/" style="text-decoration:none;color:inherit">
+          <span class="brand-mark">FinVoice</span>
+          <span class="brand-sub">해외 금융뉴스 음성 브리핑</span>
+        </a>
+      </div>
+      <div class="appbar-auth">
+        {% if user_email %}
+          <span class="auth-email">{{ user_email }}</span>
+        {% endif %}
+        <form method="POST" action="/logout" style="display:inline">
+          <button class="btn-auth-ghost" type="submit">로그아웃</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="detail-head">
+      <div class="detail-date"><a href="/">← 목록</a></div>
+      <h1 class="detail-title">관심종목 편집</h1>
+    </div>
+
+    {% if error %}
+    <div class="alert-banner" role="alert">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="wl-edit-box">
+      <p class="wl-desc">최대 6개 종목을 설정하세요. 심볼을 입력하고 Enter 또는 추가 버튼을 누르세요.</p>
+
+      <div class="wl-chips" id="wlChips">
+        {% for w in watchlist %}
+        <span class="wl-chip" data-sym="{{ w.symbol }}">
+          {{ w.symbol }}
+          <button type="button" class="wl-chip-rm" data-sym="{{ w.symbol }}">✕</button>
+        </span>
+        {% endfor %}
+      </div>
+
+      <div class="wl-input-row">
+        <input id="wlInput" type="text" placeholder="예: META" maxlength="10" autocomplete="off" spellcheck="false">
+        <button type="button" id="wlAddBtn" class="btn btn-primary" style="height:44px;padding:0 20px">추가</button>
+      </div>
+
+      <p class="wl-hint">추천: AAPL · TSLA · NVDA · MSFT · AMZN · GOOGL · META · NFLX</p>
+
+      <form id="wlForm" method="POST" action="/watchlist/edit">
+        <input type="hidden" id="wlHidden" name="symbols" value="">
+        <button class="btn btn-primary" type="submit" style="width:100%;margin-top:20px">저장</button>
+      </form>
+    </div>
+
+    <div class="disclaimer" role="contentinfo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span>본 서비스는 정보 제공용이며 투자 조언이 아닙니다. 실제 투자 결정은 전문가와 상담하세요.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var MAX = 6;
+  var chips = document.getElementById('wlChips');
+  var input = document.getElementById('wlInput');
+  var addBtn = document.getElementById('wlAddBtn');
+  var hidden = document.getElementById('wlHidden');
+  var form = document.getElementById('wlForm');
+
+  function getSymbols() {
+    return Array.from(chips.querySelectorAll('.wl-chip')).map(function (c) {
+      return c.dataset.sym;
+    });
+  }
+
+  function renderCount() {
+    var full = getSymbols().length >= MAX;
+    input.disabled = full;
+    addBtn.disabled = full;
+  }
+
+  chips.querySelectorAll('.wl-chip-rm').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.closest('.wl-chip').remove();
+      renderCount();
+    });
+  });
+
+  function addSymbol() {
+    var sym = input.value.trim().toUpperCase();
+    if (!sym) return;
+    if (getSymbols().includes(sym)) { input.value = ''; return; }
+    if (getSymbols().length >= MAX) return;
+    var chip = document.createElement('span');
+    chip.className = 'wl-chip';
+    chip.dataset.sym = sym;
+    chip.innerHTML = sym + '<button type="button" class="wl-chip-rm" data-sym="' + sym + '">✕</button>';
+    chip.querySelector('.wl-chip-rm').addEventListener('click', function () {
+      chip.remove(); renderCount();
+    });
+    chips.appendChild(chip);
+    input.value = '';
+    renderCount();
+  }
+
+  addBtn.addEventListener('click', addSymbol);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addSymbol(); }
+  });
+  input.addEventListener('input', function () {
+    this.value = this.value.toUpperCase();
+  });
+
+  form.addEventListener('submit', function () {
+    hidden.value = getSymbols().join(',');
+  });
+
+  renderCount();
+}());
+</script>
+</body>
+</html>

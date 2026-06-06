@@ -84,6 +84,56 @@ def logout(request: Request):
     return RedirectResponse("/", status_code=303)
 
 
+@app.get("/watchlist/edit", response_class=HTMLResponse)
+def watchlist_edit_page(request: Request, conn=Depends(get_conn)):
+    user_id = _current_user_id(request)
+    if not user_id:
+        return RedirectResponse("/login", status_code=303)
+    cur = conn.cursor()
+    watchlist = db.get_watchlist(cur, user_id)
+    return templates.TemplateResponse(request, "watchlist_edit.html", {
+        "watchlist": watchlist,
+        "user_email": request.session.get("user_email"),
+        "error": None,
+    })
+
+
+@app.post("/watchlist/edit", response_class=HTMLResponse)
+def watchlist_edit_save(request: Request, symbols: str = Form(default=""), conn=Depends(get_conn)):
+    user_id = _current_user_id(request)
+    if not user_id:
+        return RedirectResponse("/login", status_code=303)
+
+    raw = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    raw = list(dict.fromkeys(raw))[:6]
+
+    pairs = []
+    errors = []
+    for sym in raw:
+        if sym in _COMPANY:
+            pairs.append((sym, _COMPANY[sym]))
+        else:
+            name = _fetch_module.lookup_company(sym)
+            if name:
+                pairs.append((sym, name))
+            else:
+                errors.append(sym)
+
+    if errors:
+        cur = conn.cursor()
+        watchlist = db.get_watchlist(cur, user_id)
+        return templates.TemplateResponse(request, "watchlist_edit.html", {
+            "watchlist": watchlist,
+            "user_email": request.session.get("user_email"),
+            "error": f"존재하지 않는 종목: {', '.join(errors)}",
+        }, status_code=400)
+
+    cur = conn.cursor()
+    db.save_watchlist(cur, user_id, pairs)
+    conn.commit()
+    return RedirectResponse("/", status_code=303)
+
+
 @app.exception_handler(StarletteHTTPException)
 async def html_exception_handler(request: Request, exc: StarletteHTTPException):
     msg = exc.detail or "오류가 발생했습니다. 잠시 후 다시 시도해주세요."

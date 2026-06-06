@@ -81,3 +81,22 @@ def test_login_bad_password_returns_form(monkeypatch):
     assert resp.status_code == 401
     assert "이메일 또는 비밀번호" in resp.text
     main.app.dependency_overrides.clear()
+
+
+# ── Watchlist edit routes ─────────────────────────────────────────────
+
+def test_watchlist_edit_redirects_when_not_logged_in():
+    resp = TestClient(main.app).get("/watchlist/edit", follow_redirects=False)
+    assert resp.status_code in (302, 303)
+    assert "/login" in resp.headers["location"]
+
+
+def test_watchlist_edit_page_renders_for_logged_in(monkeypatch):
+    cur = FakeCursor(one=None, all=[{"symbol": "AAPL", "company": "Apple"}])
+    main.app.dependency_overrides[main.get_conn] = lambda: FakeConn(cur)
+    monkeypatch.setattr(main.db, "get_watchlist", lambda cur, user_id: [{"symbol": "AAPL", "company": "Apple"}])
+    monkeypatch.setattr(main, "_current_user_id", lambda req: 1)
+    resp = TestClient(main.app).get("/watchlist/edit")
+    assert resp.status_code == 200
+    assert "관심종목" in resp.text
+    main.app.dependency_overrides.clear()

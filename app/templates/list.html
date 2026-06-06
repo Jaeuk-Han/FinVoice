@@ -159,7 +159,9 @@
   }
 
   // 실시간 주가 조회
-  fetch('/api/quotes')
+  var tickerSyms = Array.from(document.querySelectorAll('.ticker-item[data-sym]'))
+    .map(function (el) { return el.dataset.sym; }).join(',');
+  fetch('/api/quotes' + (tickerSyms ? '?symbols=' + tickerSyms : ''))
     .then(function (r) { return r.json(); })
     .then(function (quotes) {
       quotes.forEach(function (q) {

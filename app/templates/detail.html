@@ -223,7 +223,9 @@
   });
 
   // 카드 주가 업데이트
-  fetch('/api/quotes')
+  var cardSyms = Array.from(document.querySelectorAll('[id^="card-q-"]'))
+    .map(function (el) { return el.id.replace('card-q-', ''); }).join(',');
+  fetch('/api/quotes' + (cardSyms ? '?symbols=' + cardSyms : ''))
     .then(function (r) { return r.json(); })
     .then(function (quotes) {
       quotes.forEach(function (q) {

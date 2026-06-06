@@ -150,10 +150,11 @@ async def html_exception_handler(request: Request, exc: StarletteHTTPException):
 
 
 @app.get("/api/quotes")
-def api_quotes():
+def api_quotes(symbols: str = ""):
+    sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()] if symbols else SUPPORTED
     now = time.time()
     results = []
-    for sym in SUPPORTED:
+    for sym in sym_list:
         cached = _quote_cache.get(sym)
         if cached and now - cached["ts"] < _CACHE_TTL:
             results.append(cached["data"])

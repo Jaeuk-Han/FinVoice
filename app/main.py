@@ -1,20 +1,31 @@
+import time
 from datetime import date
 
 from fastapi import FastAPI, Form, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import db, config
 from pipeline import runner
+from pipeline.fetch import get_quote
 
-app = FastAPI(title="증시 브리핑")
+app = FastAPI(title="FinVoice")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 _COMPANY = {sym: name for sym, name in config.WATCHLIST}
 SUPPORTED = list(_COMPANY.keys())
+
+templates.env.globals["LOGO_DOMAINS"] = config.LOGO_DOMAINS
+templates.env.globals["WATCHLIST_META"] = [
+    {"sym": sym, "company": name, "domain": config.LOGO_DOMAINS.get(sym, "")}
+    for sym, name in config.WATCHLIST
+]
+
+_quote_cache: dict = {}
+_CACHE_TTL = 60
 
 
 def get_conn():
@@ -33,6 +44,24 @@ async def html_exception_handler(request: Request, exc: StarletteHTTPException):
         {"briefings": [], "supported": SUPPORTED, "today": date.today().isoformat(), "error": msg},
         status_code=exc.status_code,
     )
+
+
+@app.get("/api/quotes")
+def api_quotes():
+    now = time.time()
+    results = []
+    for sym in SUPPORTED:
+        cached = _quote_cache.get(sym)
+        if cached and now - cached["ts"] < _CACHE_TTL:
+            results.append(cached["data"])
+            continue
+        try:
+            q = get_quote(sym)
+            _quote_cache[sym] = {"ts": now, "data": q}
+            results.append(q)
+        except Exception:
+            results.append({"symbol": sym, "price": None, "change": None, "change_pct": None})
+    return JSONResponse(results)
 
 
 @app.get("/", response_class=HTMLResponse)

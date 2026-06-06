@@ -18,6 +18,25 @@
     </div>
   </header>
 
+  <div class="ticker-wrap">
+    <div class="ticker-bar" id="tickerBar">
+      {% for w in WATCHLIST_META %}
+      <div class="ticker-item" data-sym="{{ w.sym }}">
+        <div class="tick-logo-wrap">
+          <img class="tick-logo" src="https://logo.clearbit.com/{{ w.domain }}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+               alt="{{ w.sym }}">
+          <span class="tick-init">{{ w.sym[0] }}</span>
+        </div>
+        <div class="tick-info">
+          <div class="tick-sym">{{ w.sym }}</div>
+          <div class="tick-price" id="q-{{ w.sym }}">—</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
   <div class="wrap">
 
     {% if error %}
@@ -28,17 +47,17 @@
     {% endif %}
 
     <form class="search" method="POST" action="/search" novalidate>
-      <label class="search-label" for="symInput">종목 심볼 검색</label>
+      <label class="search-label" for="symInput">종목 검색</label>
       <div class="search-row">
         <div class="field" id="symField">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input id="symInput" name="symbol" type="text" autocomplete="off" spellcheck="false"
             placeholder="예: TSLA — 대문자 자동 변환" aria-label="종목 심볼">
         </div>
-        <button class="btn-submit" type="submit">브리핑 검색</button>
+        <button class="btn-submit" type="submit">검색</button>
       </div>
       <div class="hint">
-        <span class="lbl">지원 종목</span>
+        <span class="lbl">지원</span>
         {% for sym in supported %}
         <button type="button" class="chip" data-sym="{{ sym }}">{{ sym }}</button>
         {% endfor %}
@@ -47,7 +66,7 @@
 
     {% if briefings %}
     <div class="sec-head">
-      <span class="sec-title">날짜별 브리핑</span>
+      <span class="sec-title">브리핑 히스토리</span>
     </div>
     <div class="list">
       {% for b in briefings %}
@@ -74,12 +93,12 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="center-state" style="min-height:300px">
-      <div class="state-icon empty" aria-hidden="true">
+    <div class="center-state" style="min-height:280px">
+      <div class="state-icon" aria-hidden="true">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
       </div>
       <div class="cs-title">아직 브리핑이 없습니다</div>
-      <div class="cs-text">새 브리핑이 준비되면 이곳에 표시됩니다. 위 검색창에서 종목을 직접 조회해보세요.</div>
+      <div class="cs-text">위 종목 바를 클릭하거나 검색창에서 종목을 조회하세요.</div>
     </div>
     {% endif %}
 
@@ -100,10 +119,21 @@
   updateMobile();
   window.addEventListener('resize', updateMobile);
 
-  document.querySelectorAll('[data-sym]').forEach(function (chip) {
+  // 힌트 칩 → 검색창 채우기
+  document.querySelectorAll('.chip[data-sym]').forEach(function (chip) {
     chip.addEventListener('click', function () {
       var inp = document.getElementById('symInput');
       if (inp) { inp.value = chip.dataset.sym; inp.focus(); }
+    });
+  });
+
+  // 티커 종목 → 검색 폼 제출
+  document.querySelectorAll('.ticker-item[data-sym]').forEach(function (item) {
+    item.addEventListener('click', function () {
+      var inp = document.getElementById('symInput');
+      if (inp) inp.value = item.dataset.sym;
+      var form = document.querySelector('form.search');
+      if (form) form.submit();
     });
   });
 
@@ -115,6 +145,20 @@
       this.setSelectionRange(pos, pos);
     });
   }
+
+  // 실시간 주가 조회
+  fetch('/api/quotes')
+    .then(function (r) { return r.json(); })
+    .then(function (quotes) {
+      quotes.forEach(function (q) {
+        var el = document.getElementById('q-' + q.symbol);
+        if (!el || q.price == null) return;
+        var up = q.change_pct >= 0;
+        el.textContent = '$' + q.price.toFixed(2) + ' ' + (up ? '▲' : '▼') + Math.abs(q.change_pct).toFixed(2) + '%';
+        el.className = 'tick-price ' + (up ? 'up' : 'dn');
+      });
+    })
+    .catch(function () {});
 }());
 </script>
 </body>

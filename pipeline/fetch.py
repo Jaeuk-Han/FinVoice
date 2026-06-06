@@ -48,3 +48,12 @@ def fetch_symbol(symbol: str, limit: int = None) -> list[dict]:
     raw = _call_news_api(symbol)
     articles = dedupe(parse_articles(raw))
     return articles[:limit]
+
+
+def get_quote(symbol: str) -> dict:
+    """현재 주가 조회 (Finnhub /quote). 테스트에서 mock 된다."""
+    key = config.get_env("NEWS_API_KEY")
+    resp = httpx.get(f"{NEWS_API_BASE}/quote", params={"symbol": symbol, "token": key}, timeout=5.0)
+    resp.raise_for_status()
+    d = resp.json()
+    return {"symbol": symbol, "price": d.get("c"), "change": d.get("d"), "change_pct": d.get("dp")}

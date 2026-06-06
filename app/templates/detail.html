@@ -65,9 +65,20 @@
     <article class="card lay-a fade-in">
 
       <div class="card-top">
-        <div>
+        <div class="co-logo-wrap">
+          <img class="co-logo"
+               src="https://logo.clearbit.com/{{ LOGO_DOMAINS.get(item.symbol, 'example.com') }}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+               alt="{{ item.symbol }}">
+          <div class="co-logo-init">{{ item.symbol[0] }}</div>
+        </div>
+        <div class="co-info">
           <div class="co-name">{{ item.company }}</div>
           <div class="co-symbol">{{ item.symbol }}</div>
+          <div class="co-price" id="card-q-{{ item.symbol }}">
+            <div class="co-price-val">—</div>
+            <div class="co-price-chg">—</div>
+          </div>
         </div>
         <span class="badge s-{{ sentiment }}">
           <span class="dot"></span>
@@ -135,7 +146,7 @@
     </div>
 
     {% if not is_search %}
-    <div style="margin-top:16px">
+    <div style="margin-top:8px">
       <a class="btn btn-ghost" href="/" style="display:flex;width:100%">← 목록으로 돌아가기</a>
     </div>
     {% endif %}
@@ -186,7 +197,6 @@
       if (bar) bar.style.width = '0%';
       if (cur) cur.textContent = '0:00';
     });
-
     btn.addEventListener('click', function () {
       if (audio.paused) {
         audio.play();
@@ -199,6 +209,22 @@
       }
     });
   });
+
+  // 카드 주가 업데이트
+  fetch('/api/quotes')
+    .then(function (r) { return r.json(); })
+    .then(function (quotes) {
+      quotes.forEach(function (q) {
+        var wrap = document.getElementById('card-q-' + q.symbol);
+        if (!wrap || q.price == null) return;
+        var up = q.change_pct >= 0;
+        wrap.querySelector('.co-price-val').textContent = '$' + q.price.toFixed(2);
+        var chgEl = wrap.querySelector('.co-price-chg');
+        chgEl.textContent = (up ? '▲ +' : '▼ ') + q.change_pct.toFixed(2) + '%';
+        chgEl.className = 'co-price-chg ' + (up ? 'up' : 'dn');
+      });
+    })
+    .catch(function () {});
 }());
 </script>
 </body>

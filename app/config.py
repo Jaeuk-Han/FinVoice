@@ -13,6 +13,16 @@ WATCHLIST = [
     ("GOOGL", "Alphabet"),
 ]
 
+# 종목별 로고 도메인 (Clearbit Logo API용)
+LOGO_DOMAINS: dict[str, str] = {
+    "AAPL": "apple.com",
+    "TSLA": "tesla.com",
+    "NVDA": "nvidia.com",
+    "MSFT": "microsoft.com",
+    "AMZN": "amazon.com",
+    "GOOGL": "google.com",
+}
+
 # 수집 파라미터
 ARTICLES_PER_SYMBOL = 5
 MARKET_ARTICLE_COUNT = 8

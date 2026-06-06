@@ -158,6 +158,28 @@
     });
   }
 
+  // 브리핑 생성 완료 시 자동 새로고침
+  if (window.location.search.indexOf('generating=1') !== -1) {
+    fetch('/api/today-item-count')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var baseCount = data.count;
+        var timer = setInterval(function () {
+          fetch('/api/today-item-count')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (d.count > baseCount) {
+                clearInterval(timer);
+                window.location.replace('/');
+              }
+            })
+            .catch(function () {});
+        }, 3000);
+        setTimeout(function () { clearInterval(timer); }, 180000);
+      })
+      .catch(function () {});
+  }
+
   // 실시간 주가 조회
   var tickerSyms = Array.from(document.querySelectorAll('.ticker-item[data-sym]'))
     .map(function (el) { return el.dataset.sym; }).join(',');

@@ -162,7 +162,7 @@ def watchlist_edit_save(request: Request, symbols: str = Form(default=""), conn=
     db.save_watchlist(cur, user_id, pairs)
     conn.commit()
     threading.Thread(target=_bg_generate_watchlist, args=(pairs,), daemon=True).start()
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/?generating=1", status_code=303)
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -197,6 +197,15 @@ def api_quotes(symbols: str = ""):
         except Exception:
             results.append({"symbol": sym, "price": None, "change": None, "change_pct": None})
     return JSONResponse(results)
+
+
+@app.get("/api/today-item-count")
+def today_item_count(conn=Depends(get_conn)):
+    today = date.today().isoformat()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) AS cnt FROM briefing_item WHERE item_date=%s", (today,))
+    row = cur.fetchone()
+    return JSONResponse({"count": row["cnt"] if row else 0})
 
 
 @app.get("/", response_class=HTMLResponse)

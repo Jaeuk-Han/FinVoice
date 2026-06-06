@@ -167,11 +167,23 @@ def index(request: Request, conn=Depends(get_conn)):
     today = date.today().isoformat()
     cur = conn.cursor()
     briefings = db.list_briefings(cur)
+    user_id = _current_user_id(request)
+    if user_id:
+        rows = db.get_watchlist(cur, user_id)
+        watchlist_meta = [
+            {"sym": r["symbol"], "company": r["company"],
+             "domain": config.LOGO_DOMAINS.get(r["symbol"], "")}
+            for r in rows
+        ] or list(templates.env.globals["WATCHLIST_META"])
+    else:
+        watchlist_meta = list(templates.env.globals["WATCHLIST_META"])
     return templates.TemplateResponse(request, "list.html", {
         "briefings": briefings,
         "supported": SUPPORTED,
         "today": today,
         "error": None,
+        "user_email": request.session.get("user_email"),
+        "watchlist_meta": watchlist_meta,
     })
 
 
@@ -191,6 +203,7 @@ def briefing_detail(briefing_id: int, request: Request, conn=Depends(get_conn)):
         "is_search": False,
         "supported": SUPPORTED,
         "today": today,
+        "user_email": request.session.get("user_email"),
     })
 
 
@@ -199,19 +212,29 @@ def search(request: Request, symbol: str = Form(...), conn=Depends(get_conn)):
     today = date.today().isoformat()
     symbol = symbol.strip().upper()
     cur = conn.cursor()
+    user_id = _current_user_id(request)
+    user_email = request.session.get("user_email")
+    default_wl = list(templates.env.globals["WATCHLIST_META"])
 
-    if symbol not in _COMPANY:
+    # 심볼 유효성: 비로그인 → WATCHLIST만, 로그인 → Finnhub profile 조회
+    if symbol in _COMPANY:
+        company_name = _COMPANY[symbol]
+    elif user_id:
+        company_name = _fetch_module.lookup_company(symbol)
+        if not company_name:
+            briefings = db.list_briefings(cur)
+            return templates.TemplateResponse(request, "list.html", {
+                "briefings": briefings, "supported": SUPPORTED, "today": today,
+                "error": f"존재하지 않는 종목입니다: {symbol}",
+                "user_email": user_email, "watchlist_meta": default_wl,
+            }, status_code=400)
+    else:
         briefings = db.list_briefings(cur)
-        return templates.TemplateResponse(
-            request, "list.html",
-            {
-                "briefings": briefings,
-                "supported": SUPPORTED,
-                "today": today,
-                "error": f"지원하지 않는 종목입니다. 지원 종목: {', '.join(SUPPORTED)}",
-            },
-            status_code=400,
-        )
+        return templates.TemplateResponse(request, "list.html", {
+            "briefings": briefings, "supported": SUPPORTED, "today": today,
+            "error": f"지원하지 않는 종목입니다. 지원 종목: {', '.join(SUPPORTED)}",
+            "user_email": user_email, "watchlist_meta": default_wl,
+        }, status_code=400)
 
     item = db.find_cached_item(cur, symbol, today)
     if item:
@@ -221,21 +244,16 @@ def search(request: Request, symbol: str = Form(...), conn=Depends(get_conn)):
         item["articles"] = db.get_articles_for_item(cur, item["id"])
     else:
         try:
-            result = runner.process_symbol(symbol, _COMPANY[symbol], today)
+            result = runner.process_symbol(symbol, company_name, today)
         except Exception:
             briefings = db.list_briefings(cur)
-            return templates.TemplateResponse(
-                request, "list.html",
-                {
-                    "briefings": briefings,
-                    "supported": SUPPORTED,
-                    "today": today,
-                    "error": "요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
-                },
-                status_code=500,
-            )
+            return templates.TemplateResponse(request, "list.html", {
+                "briefings": briefings, "supported": SUPPORTED, "today": today,
+                "error": "요약 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                "user_email": user_email, "watchlist_meta": default_wl,
+            }, status_code=500)
         item_id = db.insert_item(
-            cur, None, symbol, _COMPANY[symbol],
+            cur, None, symbol, company_name,
             result["summary_ko"], result["sentiment"], result["audio_url"],
             today, "ondemand",
         )
@@ -251,4 +269,5 @@ def search(request: Request, symbol: str = Form(...), conn=Depends(get_conn)):
         "is_search": True,
         "supported": SUPPORTED,
         "today": today,
+        "user_email": user_email,
     })

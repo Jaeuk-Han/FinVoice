@@ -100,3 +100,29 @@ def test_watchlist_edit_page_renders_for_logged_in(monkeypatch):
     assert resp.status_code == 200
     assert "관심종목" in resp.text
     main.app.dependency_overrides.clear()
+
+
+# ── Search auth-aware ─────────────────────────────────────────────────
+
+def test_search_rejects_unknown_symbol_when_not_logged_in():
+    cur = FakeCursor(one=None, all=[])
+    main.app.dependency_overrides[main.get_conn] = lambda: FakeConn(cur)
+    resp = TestClient(main.app).post("/search", data={"symbol": "META"})
+    assert resp.status_code == 400
+    main.app.dependency_overrides.clear()
+
+
+def test_search_allows_arbitrary_symbol_when_logged_in(monkeypatch):
+    cur = FakeCursor(one=None, all=[])
+    main.app.dependency_overrides[main.get_conn] = lambda: FakeConn(cur)
+    monkeypatch.setattr(main, "_current_user_id", lambda req: 1)
+    monkeypatch.setattr(main._fetch_module, "lookup_company", lambda sym: "Meta Platforms")
+    monkeypatch.setattr(main.runner, "process_symbol",
+                        lambda symbol, company, item_date: {
+                            "symbol": symbol, "company": company,
+                            "summary_ko": "메타요약", "sentiment": "neutral",
+                            "audio_url": None, "articles": []})
+    resp = TestClient(main.app).post("/search", data={"symbol": "META"})
+    assert resp.status_code == 200
+    assert "메타요약" in resp.text
+    main.app.dependency_overrides.clear()

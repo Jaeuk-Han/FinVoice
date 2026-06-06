@@ -50,6 +50,27 @@ def fetch_symbol(symbol: str, limit: int = None) -> list[dict]:
     return articles[:limit]
 
 
+def _call_profile_api(symbol: str) -> dict:
+    """Finnhub /stock/profile2 호출. 테스트에서 mock된다."""
+    key = config.get_env("NEWS_API_KEY")
+    resp = httpx.get(
+        f"{NEWS_API_BASE}/stock/profile2",
+        params={"symbol": symbol, "token": key},
+        timeout=5.0,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def lookup_company(symbol: str) -> str | None:
+    """Finnhub에서 종목 회사명 조회. 존재하지 않는 심볼이면 None 반환."""
+    try:
+        data = _call_profile_api(symbol)
+        return data.get("name") or None
+    except Exception:
+        return None
+
+
 def get_quote(symbol: str) -> dict:
     """현재 주가 조회 (Finnhub /quote). 테스트에서 mock 된다."""
     key = config.get_env("NEWS_API_KEY")

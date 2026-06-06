@@ -23,3 +23,19 @@ def test_fetch_symbol_uses_api_and_limits(monkeypatch):
     result = fetch.fetch_symbol("AAPL", limit=1)
     assert len(result) == 1
     assert result[0]["title_en"]
+
+
+def test_lookup_company_returns_name(monkeypatch):
+    monkeypatch.setattr(fetch, "_call_profile_api", lambda sym: {"name": "Tesla Inc", "ticker": "TSLA"})
+    assert fetch.lookup_company("TSLA") == "Tesla Inc"
+
+
+def test_lookup_company_returns_none_for_empty(monkeypatch):
+    monkeypatch.setattr(fetch, "_call_profile_api", lambda sym: {})
+    assert fetch.lookup_company("ZZZZ") is None
+
+
+def test_lookup_company_returns_none_on_error(monkeypatch):
+    def boom(sym): raise Exception("network error")
+    monkeypatch.setattr(fetch, "_call_profile_api", boom)
+    assert fetch.lookup_company("FAIL") is None

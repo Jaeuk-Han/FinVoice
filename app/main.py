@@ -106,14 +106,17 @@ def _bg_generate_watchlist(pairs: list):
             conn = db.get_connection()
             cur = conn.cursor()
             cached = db.find_cached_item(cur, sym, today)
-            conn.close()
             if cached:
+                conn.close()
                 continue
+            briefing_id = db.insert_briefing(cur, today, None, None)
+            conn.commit()
+            conn.close()
             result = runner.process_symbol(sym, company, today)
             conn = db.get_connection()
             cur = conn.cursor()
             item_id = db.insert_item(
-                cur, None, sym, company,
+                cur, briefing_id, sym, company,
                 result["summary_ko"], result["sentiment"],
                 result["audio_url"], today, "ondemand",
             )

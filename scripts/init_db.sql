@@ -38,3 +38,20 @@ CREATE TABLE IF NOT EXISTS article (
     -- non-unique: same article URL may legitimately relate to multiple symbols/items; dedup is done in-memory per fetch
     KEY idx_url_hash (url_hash)
 );
+
+CREATE TABLE IF NOT EXISTS user (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    email         VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_watchlist (
+    id        BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id   BIGINT NOT NULL,
+    symbol    VARCHAR(16) NOT NULL,
+    company   VARCHAR(100) NOT NULL,
+    position  TINYINT DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_user_symbol (user_id, symbol)
+);

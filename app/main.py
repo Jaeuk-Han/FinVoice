@@ -139,7 +139,12 @@ async def html_exception_handler(request: Request, exc: StarletteHTTPException):
     msg = exc.detail or "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     return templates.TemplateResponse(
         request, "list.html",
-        {"briefings": [], "supported": SUPPORTED, "today": date.today().isoformat(), "error": msg},
+        {
+            "briefings": [], "supported": SUPPORTED, "today": date.today().isoformat(),
+            "error": msg,
+            "user_email": request.session.get("user_email"),
+            "watchlist_meta": list(templates.env.globals["WATCHLIST_META"]),
+        },
         status_code=exc.status_code,
     )
 

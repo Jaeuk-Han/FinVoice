@@ -658,6 +658,182 @@ details[open] .chev { transform: rotate(180deg); }
 }
 .disclaimer svg { flex-shrink: 0; margin-top: 1px; }
 
+/* ── Appbar Auth ────────────────────────────────────── */
+.appbar-auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.auth-email {
+  font-size: 12px;
+  color: var(--text-3);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn-auth-ghost {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  text-decoration: none;
+  transition: all var(--dur) var(--ease);
+}
+.btn-auth-ghost:hover { background: var(--surface-2); color: var(--text-1); }
+.btn-auth-primary {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  text-decoration: none;
+  transition: opacity var(--dur) var(--ease);
+}
+.btn-auth-primary:hover { opacity: 0.85; }
+
+/* ── Auth Pages (login / register) ──────────────────── */
+.auth-box {
+  max-width: 400px;
+  margin: 48px auto 0;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.auth-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 24px;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.auth-field input {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--dur);
+}
+.auth-field input:focus { border-color: var(--accent); }
+.auth-link {
+  margin-top: 20px;
+  font-size: 13px;
+  color: var(--text-3);
+  text-align: center;
+}
+.auth-link a { color: var(--accent); text-decoration: none; }
+.auth-link a:hover { text-decoration: underline; }
+
+/* ── Watchlist Edit ──────────────────────────────────── */
+.wl-edit-box {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.wl-desc {
+  font-size: 14px;
+  color: var(--text-2);
+  margin: 0 0 16px;
+  line-height: 1.6;
+}
+.wl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 40px;
+  margin-bottom: 16px;
+}
+.wl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px 0 12px;
+  border-radius: 17px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.wl-chip-rm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background var(--dur), color var(--dur);
+}
+.wl-chip-rm:hover { background: var(--accent); color: #fff; }
+.wl-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.wl-input-row input {
+  flex: 1;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color var(--dur);
+}
+.wl-input-row input:focus { border-color: var(--accent); }
+.wl-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0 0 20px;
+  line-height: 1.6;
+}
+
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 480px) {
   .appbar-in { padding: 0 16px; }

@@ -15,12 +15,24 @@
         <span class="brand-mark">FinVoice</span>
         <span class="brand-sub">해외 금융뉴스 음성 브리핑</span>
       </div>
+      <div class="appbar-auth">
+        {% if user_email %}
+          <span class="auth-email">{{ user_email }}</span>
+          <a class="btn-auth-ghost" href="/watchlist/edit">관심종목 편집</a>
+          <form method="POST" action="/logout" style="display:inline">
+            <button class="btn-auth-ghost" type="submit">로그아웃</button>
+          </form>
+        {% else %}
+          <a class="btn-auth-ghost" href="/login">로그인</a>
+          <a class="btn-auth-primary" href="/register">회원가입</a>
+        {% endif %}
+      </div>
     </div>
   </header>
 
   <div class="ticker-wrap">
     <div class="ticker-bar" id="tickerBar">
-      {% for w in WATCHLIST_META %}
+      {% for w in watchlist_meta %}
       <div class="ticker-item" data-sym="{{ w.sym }}">
         <div class="tick-logo-wrap">
           <img class="tick-logo" src="https://logo.clearbit.com/{{ w.domain }}"

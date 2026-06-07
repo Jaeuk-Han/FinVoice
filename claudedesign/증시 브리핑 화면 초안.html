@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>증시 브리핑 — 화면 초안</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* ===== 리뷰 크롬 (실제 앱 바깥) ===== */
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: var(--font-ui);
+    background: #f1f2f4;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .stage { min-height: 100%; display: flex; flex-direction: column; }
+  .toolbar {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--hairline);
+    padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .tb-brand { font-family: var(--font-head); font-size: 16px; letter-spacing: 0.4px; color: var(--ink); }
+  .tb-brand span { color: var(--faint); font-family: var(--font-ui); font-size: 12px; font-weight: 500; margin-left: 8px; letter-spacing: 0; }
+  .tb-spacer { flex: 1; }
+  .tb-group { display: flex; align-items: center; gap: 8px; }
+  .tb-label { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; color: var(--faint); text-transform: uppercase; }
+  .seg { display: inline-flex; background: var(--surface-soft); border: 1px solid var(--hairline); border-radius: var(--radius-pill); padding: 3px; gap: 2px; }
+  .seg button {
+    border: 0; background: transparent; cursor: pointer;
+    font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--muted);
+    padding: 6px 13px; border-radius: var(--radius-pill);
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .seg button[aria-pressed="true"] { background: var(--canvas); color: var(--ink); box-shadow: var(--shadow-xs); }
+  .seg.review button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+  .device-area { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: 36px 24px 64px; }
+  .device {
+    background: var(--canvas);
+    border: 1px solid #dfe1e5;
+    overflow: hidden;
+    transition: width var(--dur) var(--ease);
+    display: flex; flex-direction: column;
+  }
+  .device.mobile {
+    width: 390px; height: 800px;
+    border-radius: 30px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08);
+    padding: 10px;
+  }
+  .device.mobile .device-screen { border-radius: 22px; }
+  .device.desktop {
+    width: 760px; height: 820px;
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .device-chrome {
+    flex: none; height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 14px;
+    border-bottom: 1px solid var(--hairline); background: var(--surface-soft);
+  }
+  .device.mobile .device-chrome { display: none; }
+  .dot-tl { width: 11px; height: 11px; border-radius: 50%; }
+  .device-chrome .url {
+    margin-left: 10px; flex: 1; height: 22px; background: var(--canvas); border: 1px solid var(--hairline);
+    border-radius: var(--radius-pill); font-size: 11px; color: var(--faint); display: flex; align-items: center; padding: 0 12px;
+  }
+  .device-screen { flex: 1; min-height: 0; overflow: hidden; position: relative; background: var(--canvas); }
+  .caption { margin: 0 auto; max-width: 760px; padding: 0 24px; }
+  .caption p { font-size: 12px; color: var(--faint); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="toolbar">
+    <div class="tb-brand">증시 브리핑<span>화면 초안 · 데모용</span></div>
+    <div class="tb-spacer"></div>
+    <div class="tb-group">
+      <span class="tb-label">화면</span>
+      <div class="seg review" id="segState">
+        <button data-state="list" aria-pressed="true">목록</button>
+        <button data-state="loading" aria-pressed="false">로딩</button>
+        <button data-state="error" aria-pressed="false">오류</button>
+        <button data-state="empty" aria-pressed="false">빈 상태</button>
+      </div>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">결과 카드</span>
+      <div class="seg" id="segLayout">
+        <button data-layout="a" aria-pressed="true">A 스택</button>
+        <button data-layout="b" aria-pressed="false">B 분할</button>
+        <button data-layout="c" aria-pressed="false">C 컴팩트</button>
+      </div>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">뷰포트</span>
+      <div class="seg" id="segView">
+        <button data-view="mobile" aria-pressed="true">모바일 390</button>
+        <button data-view="desktop" aria-pressed="false">데스크톱 760</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="device-area">
+    <div class="device mobile" id="device">
+      <div class="device-chrome">
+        <span class="dot-tl" style="background:#ff5f57"></span>
+        <span class="dot-tl" style="background:#febc2e"></span>
+        <span class="dot-tl" style="background:#28c840"></span>
+        <span class="url">briefing.demo.local / 데모 환경</span>
+      </div>
+      <div class="device-screen">
+        <div class="app is-mobile" id="app"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">
+    <p>상단 컨트롤로 화면 상태(목록·로딩·오류·빈 상태), 결과 카드 레이아웃(A/B/C), 뷰포트(390/760)를 전환할 수 있습니다. 모든 수치·요약·출처는 <b>데모용 샘플</b>이며 실제 시장 데이터·개인정보·금융정보가 아닙니다.</p>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   데모용 샘플 데이터 — 실제 시장/금융 데이터가 아닙니다.
+   ========================================================= */
+const SUPPORTED = ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL"];
+
+const STOCKS = {
+  TSLA:  { name:"Tesla, Inc.",          sym:"TSLA",  sentiment:"positive",
+    summary:"테슬라는 이번 분기 인도량이 시장 예상을 소폭 상회했다고 발표한 것으로 가정한 샘플 요약입니다. 에너지 저장 부문 성장과 함께 가격 정책 변화가 마진에 미칠 영향이 주요 관전 포인트로 정리됩니다.",
+    dur:"0:42" },
+  AAPL:  { name:"Apple Inc.",           sym:"AAPL",  sentiment:"neutral",
+    summary:"애플은 이번 분기 매출이 전년과 유사한 수준을 유지했다는 가정의 샘플 요약입니다. 서비스 부문은 견조했으나 하드웨어 수요는 지역별로 엇갈린 흐름을 보인 것으로 정리됩니다.",
+    dur:"0:38" },
+  NVDA:  { name:"NVIDIA Corporation",   sym:"NVDA",  sentiment:"positive",
+    summary:"엔비디아는 데이터센터 수요가 강세를 이어갔다는 가정의 샘플 요약입니다. 차세대 제품 공급 일정과 재고 수준이 향후 분기 가이던스의 핵심 변수로 언급됩니다.",
+    dur:"0:45" },
+  MSFT:  { name:"Microsoft Corporation",sym:"MSFT",  sentiment:"neutral",
+    summary:"마이크로소프트는 클라우드 매출 성장세가 둔화 조짐 없이 유지됐다는 가정의 샘플 요약입니다. AI 관련 설비 투자 확대가 단기 비용 부담으로 작용할 수 있다는 점이 함께 정리됩니다.",
+    dur:"0:40" },
+  AMZN:  { name:"Amazon.com, Inc.",     sym:"AMZN",  sentiment:"negative",
+    summary:"아마존은 물류 비용 증가로 영업이익률이 예상을 하회했다는 가정의 샘플 요약입니다. 리테일 수요 둔화 우려가 제기되었으나 클라우드 부문은 상대적으로 안정적인 흐름으로 정리됩니다.",
+    dur:"0:41" },
+  GOOGL: { name:"Alphabet Inc.",        sym:"GOOGL", sentiment:"positive",
+    summary:"알파벳은 광고 매출이 회복세를 보였다는 가정의 샘플 요약입니다. 검색·클라우드 부문의 동반 성장과 함께 비용 효율화 노력이 수익성 개선에 기여한 것으로 정리됩니다.",
+    dur:"0:39" }
+};
+
+const SENT_LABEL = { positive:"긍정", neutral:"중립", negative:"부정" };
+
+const SOURCES = [
+  { title:"시장 동향 데일리 (샘플 출처)", host:"example.com", url:"https://example.com/news/1" },
+  { title:"분기 실적 요약 (샘플 출처)",   host:"example.com", url:"https://example.com/news/2" },
+  { title:"산업 분석 노트 (샘플 출처)",   host:"example.com", url:"https://example.com/news/3" }
+];
+
+const BRIEFINGS = [
+  { id:"2026-06-06", day:"06", mon:"6월", today:true,
+    overview:"오늘 시장은 기술주를 중심으로 강보합세를 보였다는 가정의 샘플 시황입니다. 반도체·플랫폼 업종이 상대적 강세를, 일부 리테일 업종이 약세를 나타낸 것으로 정리됩니다.",
+    symbols:["NVDA","TSLA","AMZN"] },
+  { id:"2026-06-05", day:"05", mon:"6월",
+    overview:"전일 시장은 보합권에서 등락을 반복했다는 가정의 샘플 시황입니다. 실적 발표를 앞둔 종목들의 관망세가 짙었던 것으로 정리됩니다.",
+    symbols:["AAPL","MSFT","GOOGL"] },
+  { id:"2026-06-04", day:"04", mon:"6월",
+    overview:"이틀 전 시장은 소폭 조정 흐름을 보였다는 가정의 샘플 시황입니다. 차익 실현 매물이 출회되며 변동성이 다소 확대된 것으로 정리됩니다.",
+    symbols:["TSLA","NVDA","MSFT"] }
+];
+
+/* ===== icons ===== */
+const I = {
+  search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
+  play:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg>',
+  pause:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+  arrow:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+  chev:'<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  ext:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>',
+  alert:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  inbox:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  info:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>'
+};
+
+/* ===== state ===== */
+const S = { view:"list", layout:"a", viewport:"mobile", symbol:null, errorKind:"unsupported", detailId:null };
+const app = document.getElementById("app");
+
+function badge(sentiment){
+  return `<span class="badge s-${sentiment}"><span class="dot"></span>${SENT_LABEL[sentiment]}</span>`;
+}
+function sampleTag(){
+  return `<span class="sample-tag">${I.info} 데모용 샘플</span>`;
+}
+function appbar(){
+  return `<header class="appbar"><div class="appbar-in">
+    <div class="brand">
+      <span class="brand-mark">증시 브리핑</span>
+      <span class="brand-sub">해외 금융뉴스 음성 요약</span>
+    </div>
+    <span class="demo-pill">데모</span>
+  </div></header>`;
+}
+function disclaimer(){
+  return `<div class="disclaimer">${I.info}<span>본 화면의 모든 내용은 데모용 샘플이며 투자 조언이 아닙니다. 실제 시장 데이터·금융정보·개인정보를 포함하지 않습니다.</span></div>`;
+}
+function searchForm(errorMsg){
+  const chips = SUPPORTED.map(s=>`<button class="chip" data-chip="${s}">${s}</button>`).join("");
+  return `<form class="search" id="searchForm" novalidate>
+    <label class="search-label" for="symInput">종목 심볼 검색</label>
+    <div class="search-row">
+      <div class="field${errorMsg?' is-error':''}" id="symField">
+        ${I.search}
+        <input id="symInput" type="text" autocomplete="off" spellcheck="false"
+          placeholder="예: TSLA — 대문자 자동 변환" aria-label="종목 심볼">
+      </div>
+      <button class="btn-submit" type="submit" id="submitBtn">브리핑 검색</button>
+    </div>
+    <div class="field-msg${errorMsg?' show':''}" id="fieldMsg">${I.alert}<span>${errorMsg||''}</span></div>
+    <div class="hint"><span class="lbl">지원 종목</span>${chips}</div>
+  </form>`;
+}
+
+/* ===== 결과 카드: 3개 레이아웃 ===== */
+function player(st, idx){
+  return `<div class="player">
+    <button class="play-btn" data-play="${idx}" aria-label="음성 재생">${I.play}</button>
+    <div class="player-meta">
+      <div class="player-track"><i data-bar="${idx}"></i></div>
+      <div class="player-time"><span data-cur="${idx}">0:00</span><span>${st.dur}</span></div>
+      <div class="player-note">데모 — 실제 오디오 미연결 (UI 미리보기)</div>
+    </div>
+  </div>`;
+}
+function sourcesBlock(open){
+  const items = SOURCES.map(s=>`<a href="${s.url}" target="_blank" rel="noopener noreferrer">${I.ext}<span>${s.title}</span><span class="src-host">${s.host}</span></a>`).join("");
+  return `<details class="sources"${open?' open':''}>
+    <summary>근거 출처 ${SOURCES.length}건${I.chev}</summary>
+    <div class="source-list">${items}</div>
+  </details>`;
+}
+function actionsBlock(){
+  return `<div class="actions">
+    <button class="btn btn-primary" data-act="search">다른 종목 검색</button>
+    <button class="btn btn-ghost" data-act="list">목록으로</button>
+  </div>`;
+}
+
+function cardA(st, idx){
+  return `<article class="card lay-a fade-in">
+    <div class="card-top">
+      <div><div class="co-name">${st.name}</div><div class="co-symbol">${st.sym}</div></div>
+      ${badge(st.sentiment)}
+    </div>
+    <div class="zone"><div class="zone-label">요약</div><p class="summary-text">${st.summary}</p></div>
+    <div class="zone"><div class="zone-label">음성 브리핑</div>${player(st, idx)}</div>
+    <div class="zone"><div class="zone-label">근거</div>${sourcesBlock(false)}</div>
+    <div class="zone"><div class="zone-label">다음 행동</div>${actionsBlock()}</div>
+  </article>`;
+}
+function cardB(st, idx){
+  return `<article class="card lay-b fade-in">
+    <div class="card-grid">
+      <div class="b-left">
+        <div class="co-symbol">${st.sym}</div>
+        <div class="co-name">${st.name}</div>
+        ${badge(st.sentiment)}
+      </div>
+      <div class="b-right">
+        <div class="zone"><div class="zone-label">요약</div><p class="summary-text">${st.summary}</p></div>
+        <div class="zone"><div class="zone-label">음성 브리핑</div>${player(st, idx)}</div>
+        <div class="zone"><div class="zone-label">근거</div>${sourcesBlock(false)}</div>
+        <div class="zone"><div class="zone-label">다음 행동</div>${actionsBlock()}</div>
+      </div>
+    </div>
+  </article>`;
+}
+function cardC(st, idx){
+  return `<article class="card lay-c fade-in">
+    <div class="c-head">
+      <div class="co-name">${st.name}</div>
+      <div class="co-symbol">${st.sym}</div>
+      ${badge(st.sentiment)}
+    </div>
+    <div class="c-body">
+      <button class="c-play" data-play="${idx}" aria-label="음성 재생">${I.play}</button>
+      <p class="summary-text">${st.summary}</p>
+    </div>
+    ${sourcesBlock(false)}
+    <div class="c-foot">
+      <button class="btn btn-primary" data-act="search">다른 종목 검색</button>
+      <button class="btn btn-ghost" data-act="list">목록으로</button>
+    </div>
+  </article>`;
+}
+function renderCard(st, idx){
+  if(S.layout==="b") return cardB(st, idx);
+  if(S.layout==="c") return cardC(st, idx);
+  return cardA(st, idx);
+}
+
+/* ===== views ===== */
+function viewList(){
+  const items = BRIEFINGS.map(b=>`
+    <button class="list-item" data-brief="${b.id}">
+      <div class="li-date"><div class="li-day">${b.day}</div><div class="li-mon">${b.mon}</div></div>
+      <div class="li-body">
+        <div class="li-title">${b.id} 브리핑${b.today?'<span class="today-tag">오늘</span>':''}</div>
+        <div class="li-summary">${b.overview}</div>
+      </div>
+      <span class="li-arrow">${I.arrow}</span>
+    </button>`).join("");
+  return `${appbar()}<div class="wrap fade-in">
+    ${searchForm(null)}
+    <div class="sec-head"><span class="sec-title">날짜별 브리핑</span><span class="sec-meta">${sampleTag()}</span></div>
+    <div class="list">${items}</div>
+    ${disclaimer()}
+  </div>`;
+}
+function viewLoading(){
+  const sym = S.symbol || "TSLA";
+  return `${appbar()}<div class="wrap">
+    <div class="center-state fade-in">
+      <div class="spinner"></div>
+      <div class="cs-title">요약 생성 중…</div>
+      <div class="cs-text"><b>${sym}</b> 종목의 뉴스를 수집하고 한국어 요약과 음성을 생성하고 있습니다.</div>
+      <div class="load-steps">
+        <div class="load-step done" id="ls0"><span class="lsdot"><i></i></span>뉴스 수집</div>
+        <div class="load-step active" id="ls1"><span class="lsdot"><i></i></span>한국어 요약 생성</div>
+        <div class="load-step" id="ls2"><span class="lsdot"><i></i></span>음성 합성</div>
+      </div>
+    </div>
+  </div>`;
+}
+function viewResult(){
+  const st = STOCKS[S.symbol] || STOCKS.TSLA;
+  // 검색 결과: 단일 종목 카드 (브리프 화면3)
+  return `${appbar()}<div class="wrap fade-in">
+    <div class="detail-head">
+      <div class="detail-date">2026-06-06 · 온디맨드 검색 결과 ${sampleTag()}</div>
+      <h1 class="detail-title">${st.name}</h1>
+    </div>
+    <div id="cardSlot">${renderCard(st, 0)}</div>
+    ${disclaimer()}
+  </div>`;
+}
+function viewDetail(){
+  const b = BRIEFINGS.find(x=>x.id===S.detailId) || BRIEFINGS[0];
+  const cards = b.symbols.map((sym,i)=>renderCard(STOCKS[sym], i)).join("");
+  return `${appbar()}<div class="wrap fade-in">
+    <div class="detail-head">
+      <div class="detail-date">${b.id} 브리핑 ${sampleTag()}</div>
+      <h1 class="detail-title">오늘의 시장 브리핑</h1>
+    </div>
+    <div class="overview">
+      <div class="ov-label">시장 전반 요약</div>
+      <p class="ov-text">${b.overview}</p>
+      <div class="ov-foot"><span>종목 <b>${b.symbols.length}</b></span><span>음성 <b>제공</b></span><span>데이터 <b>샘플</b></span></div>
+    </div>
+    <div class="sec-head"><span class="sec-title">종목별 요약</span></div>
+    <div id="cardSlot">${cards}</div>
+    <div style="margin-top:16px">
+      <button class="btn btn-ghost" data-act="list" style="width:100%">목록으로 돌아가기</button>
+    </div>
+    ${disclaimer()}
+  </div>`;
+}
+function viewError(){
+  const map = {
+    unsupported:{ t:"지원하지 않는 종목입니다", m:"AAPL, TSLA 등 지원 종목을 입력해주세요." },
+    pipeline:{ t:"요약 생성에 실패했습니다", m:"잠시 후 다시 시도해주세요." }
+  };
+  const e = map[S.errorKind] || map.unsupported;
+  return `${appbar()}<div class="wrap">
+    ${searchForm(null)}
+    <div class="center-state fade-in" style="min-height:300px">
+      <div class="state-icon err">${I.alert}</div>
+      <div class="cs-title">${e.t}</div>
+      <div class="cs-text">${e.m}</div>
+      <div style="margin-top:18px"><button class="btn btn-ghost" data-act="focus">다시 입력하기</button></div>
+    </div>
+    ${disclaimer()}
+  </div>`;
+}
+function viewEmpty(){
+  return `${appbar()}<div class="wrap">
+    ${searchForm(null)}
+    <div class="center-state fade-in" style="min-height:300px">
+      <div class="state-icon empty">${I.inbox}</div>
+      <div class="cs-title">아직 브리핑이 없습니다</div>
+      <div class="cs-text">새 브리핑이 준비되면 이곳에 표시됩니다. 위 검색창에서 종목을 직접 조회해보세요.</div>
+      <div style="margin-top:18px"><button class="btn btn-primary" data-act="focus" style="flex:none;padding:0 22px">종목 검색하기</button></div>
+    </div>
+    ${disclaimer()}
+  </div>`;
+}
+
+function render(){
+  let html;
+  switch(S.view){
+    case "loading": html=viewLoading(); break;
+    case "result":  html=viewResult(); break;
+    case "detail":  html=viewDetail(); break;
+    case "error":   html=viewError(); break;
+    case "empty":   html=viewEmpty(); break;
+    default:        html=viewList();
+  }
+  app.innerHTML = html;
+  app.scrollTop = 0;
+  bind();
+}
+
+/* ===== interactions ===== */
+function startSearch(raw){
+  const sym = (raw||"").trim().toUpperCase();
+  if(!sym){ flashError("종목 심볼을 입력해주세요."); return; }
+  if(!SUPPORTED.includes(sym)){
+    S.view="error"; S.errorKind="unsupported"; render(); return;
+  }
+  S.symbol = sym; S.view="loading"; render();
+  runLoadingSteps(()=>{ S.view="result"; render(); });
+}
+function flashError(msg){
+  const f=document.getElementById("symField"), m=document.getElementById("fieldMsg");
+  if(f) f.classList.add("is-error");
+  if(m){ m.querySelector("span").textContent=msg; m.classList.add("show"); }
+}
+function runLoadingSteps(done){
+  // 데모 진행 표시 (수 초)
+  setTimeout(()=>{ mark("ls1","done"); mark("ls2","active"); }, 850);
+  setTimeout(()=>{ mark("ls2","done"); }, 1700);
+  setTimeout(done, 2100);
+}
+function mark(id, cls){
+  const el=document.getElementById(id); if(!el) return;
+  el.classList.remove("active"); el.classList.add(cls);
+}
+
+const timers = {};
+function togglePlay(idx, btn){
+  const bar=document.querySelector(`[data-bar="${idx}"]`);
+  const cur=document.querySelector(`[data-cur="${idx}"]`);
+  if(timers[idx]){
+    clearInterval(timers[idx]); timers[idx]=null;
+    btn.innerHTML=I.play; return;
+  }
+  btn.innerHTML=I.pause;
+  let p = bar ? (parseFloat(bar.style.width)||0) : 0;
+  const total = 42; // 데모 길이(초)
+  timers[idx]=setInterval(()=>{
+    p+=1.4;
+    if(p>=100){ p=100; clearInterval(timers[idx]); timers[idx]=null; btn.innerHTML=I.play; }
+    if(bar) bar.style.width=p+"%";
+    if(cur){ const s=Math.round(total*p/100); cur.textContent=`0:${String(s).padStart(2,"0")}`; }
+  }, 120);
+}
+
+function bind(){
+  const form=document.getElementById("searchForm");
+  if(form){
+    const input=document.getElementById("symInput");
+    form.addEventListener("submit",e=>{ e.preventDefault(); startSearch(input.value); });
+    input && input.addEventListener("input",()=>{
+      const f=document.getElementById("symField"), m=document.getElementById("fieldMsg");
+      if(f) f.classList.remove("is-error"); if(m) m.classList.remove("show");
+    });
+  }
+  document.querySelectorAll("[data-chip]").forEach(c=>{
+    c.addEventListener("click",()=>{ const i=document.getElementById("symInput"); if(i){ i.value=c.dataset.chip; i.focus(); } });
+  });
+  document.querySelectorAll("[data-brief]").forEach(b=>{
+    b.addEventListener("click",()=>{ S.detailId=b.dataset.brief; S.view="detail"; render(); syncStateSeg(); });
+  });
+  document.querySelectorAll("[data-play]").forEach(b=>{
+    b.addEventListener("click",()=>togglePlay(b.dataset.play, b));
+  });
+  document.querySelectorAll("[data-act]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const a=b.dataset.act;
+      if(a==="search"||a==="list"){ S.view="list"; render(); syncStateSeg(); setTimeout(()=>{ if(a==="search"){const i=document.getElementById("symInput"); i&&i.focus();} },50); }
+      if(a==="focus"){ const i=document.getElementById("symInput"); i&&i.focus(); }
+    });
+  });
+}
+
+/* ===== toolbar wiring ===== */
+function press(seg, attr, val){
+  seg.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset[attr]===val)));
+}
+function syncStateSeg(){
+  const seg=document.getElementById("segState");
+  const v = (S.view==="detail"||S.view==="result")?"list":S.view;
+  press(seg,"state", v);
+}
+document.getElementById("segState").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const st=b.dataset.state; press(e.currentTarget,"state",st);
+  if(st==="loading"){ S.symbol="TSLA"; S.view="loading"; render(); runLoadingSteps(()=>{ S.view="result"; render(); }); }
+  else if(st==="error"){ S.errorKind="unsupported"; S.view="error"; render(); }
+  else { S.view=st; render(); }
+});
+document.getElementById("segLayout").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  S.layout=b.dataset.layout; press(e.currentTarget,"layout",S.layout);
+  if(S.view==="result"||S.view==="detail") render();
+});
+document.getElementById("segView").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  S.viewport=b.dataset.view; press(e.currentTarget,"view",S.viewport);
+  const dev=document.getElementById("device");
+  dev.classList.toggle("mobile", S.viewport==="mobile");
+  dev.classList.toggle("desktop", S.viewport==="desktop");
+  app.classList.toggle("is-mobile", S.viewport==="mobile");
+});
+
+render();
+</script>
+</body>
+</html>

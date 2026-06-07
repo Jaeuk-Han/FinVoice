@@ -104,14 +104,18 @@ input  { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--border);
 }
 .ticker-bar {
+  width: 100%;
   max-width: 760px;
   margin: 0 auto;
   display: flex;
   gap: 8px;
   padding: 12px 20px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+  box-sizing: border-box;
 }
 .ticker-bar::-webkit-scrollbar { display: none; }
 
@@ -119,7 +123,7 @@ input  { font: inherit; color: inherit; }
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   padding: 8px 14px 8px 10px;
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -127,6 +131,7 @@ input  { font: inherit; color: inherit; }
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
   user-select: none;
+  scroll-snap-align: start;
 }
 .ticker-item:hover {
   background: var(--surface-2);

@@ -105,6 +105,10 @@ Starlette `SessionMiddleware`(서명 쿠키) 기반 인증 구현.
 - 비로그인: 고정 `WATCHLIST` 심볼로 조회
 - 프론트: 페이지 로드 시 한 번 fetch, `▲/▼` + 등락률 표시
 
+**버그픽스 — 티커바 오른쪽 카드 잘림 현상**
+- 원인: `.ticker-bar`에 `width: 100%`가 없어 `max-width: 760px`만으로는 뷰포트 초과 시 컨테이너가 제약되지 않음
+- 해결: `width: 100%`, `overflow-y: hidden`, `box-sizing: border-box` 추가; `.ticker-item`을 `flex: 0 0 auto`로 변경; `scroll-snap-type: x proximity` + `scroll-snap-align: start` 적용
+
 ---
 
 ## M11. 에이전트 역할 재정립 (유지보수 시나리오 추가)

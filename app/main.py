@@ -128,6 +128,31 @@ def _bg_generate_watchlist(pairs: list):
             pass
 
 
+def _bg_startup_batch():
+    today = date.today().isoformat()
+    try:
+        conn = db.get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM briefing WHERE briefing_date=%s", (today,))
+        if cur.fetchone():
+            conn.close()
+            return
+        conn.close()
+        from batch_job import run_batch
+        conn2 = db.get_connection()
+        try:
+            run_batch(conn2, today)
+        finally:
+            conn2.close()
+    except Exception:
+        pass
+
+
+@app.on_event("startup")
+async def on_startup():
+    threading.Thread(target=_bg_startup_batch, daemon=True).start()
+
+
 @app.post("/watchlist/edit", response_class=HTMLResponse)
 def watchlist_edit_save(request: Request, symbols: str = Form(default=""), conn=Depends(get_conn)):
     user_id = _current_user_id(request)

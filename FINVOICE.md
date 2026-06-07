@@ -26,7 +26,7 @@
 | 서비스명 | FinVoice |
 | 목적 | 해외 금융뉴스 자동 수집 → 한국어 요약 → 음성 브리핑 제공 |
 | 대상 사용자 | 비로그인 사용자(기본 관심종목 열람) + 로그인 사용자(개인 관심종목 편집·임의 종목 검색) |
-| 핵심 기능 | ① 매일 자동 배치 브리핑 ② 종목 온디맨드 검색 ③ 음성 재생 ④ 개인 관심종목 편집(최대 5개) |
+| 핵심 기능 | ① 매일 자동 배치 브리핑(cron 07:00) ② 서비스 기동 시 자동 배치 ③ 종목 온디맨드 검색 ④ 음성 재생 ⑤ 개인 관심종목 편집(최대 5개) |
 | 기본 관심종목 | AAPL, TSLA, NVDA, MSFT, AMZN, GOOGL (고정, `app/config.py`) |
 | 인프라 | NCP (Server + Cloud DB + Object Storage + AI 서비스군) |
 
@@ -325,9 +325,11 @@ python batch_job.py
 pytest -q
 ```
 
-**cron 등록 예시** (서버):
+**서비스 기동 시 자동 배치**: `@app.on_event("startup")`에서 오늘 `briefing` 행이 없으면 백그라운드 스레드로 `batch_job.run_batch()` 자동 실행. `Restart=always` 재시작 시 중복 방지(이미 생성됐으면 스킵).
+
+**cron 등록** (서버 실제 등록됨):
 ```cron
-0 7 * * 1-5 cd /srv/finvoice && .venv/bin/python batch_job.py >> logs/batch.log 2>&1
+0 7 * * * cd /srv/finvoice && .venv/bin/python batch_job.py >> /srv/finvoice/logs/batch.log 2>&1
 ```
 
 ---
@@ -342,6 +344,9 @@ pytest -q
 - 비밀번호: `passlib[bcrypt]` (bcrypt 해시, `bcrypt==3.2.2` 핀 — 4.x/5.x는 passlib 1.7.4와 비호환)
 - 비로그인 사용자: 기본 관심종목 6개만 열람 가능
 - 로그인 사용자: 개인 워치리스트(최대 5개) 편집 + Finnhub에 존재하는 임의 종목 검색 가능
+
+### 서비스 기동 시 자동 배치
+`@app.on_event("startup")`에서 오늘 `briefing` 행 존재 여부를 확인하고, 없으면 `batch_job.run_batch()`를 백그라운드 daemon 스레드로 즉시 실행한다. `Restart=always` 설정으로 서비스가 재시작되더라도 이미 오늘 배치가 완료됐으면 스킵한다.
 
 ### 워치리스트 저장 후 자동 리포트 생성
 `POST /watchlist/edit` 저장 완료 후 백그라운드 daemon 스레드가 새 종목의 오늘 캐시를 확인하고, 없으면 파이프라인을 즉시 실행해 briefing 레코드에 연결한다. 사용자는 `/?generating=1`로 리다이렉트된 후 3초 간격 폴링으로 생성 완료 시 자동 새로고침된다.

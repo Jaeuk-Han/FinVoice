@@ -29,6 +29,16 @@ fetch → translate → summarize → tts
 - 당일 캐시(`find_cached_item`) 존재 시 재처리 생략
 - 한 종목 실패가 전체 배치를 중단하지 않도록 `try/except`로 부분 성공 허용
 - `briefing` + `briefing_item` + `article` 3단계 DB 구조로 날짜별 이력 관리
+- **서버 cron 등록**: `0 7 * * * cd /srv/finvoice && .venv/bin/python batch_job.py >> /srv/finvoice/logs/batch.log 2>&1`
+
+## M10. 서비스 기동 시 자동 배치
+
+배포 직후나 서버 재시작 시 오늘 브리핑이 없으면 즉시 배치를 실행한다.
+
+- `@app.on_event("startup")`에서 오늘 `briefing` 행 존재 여부 확인
+- 없으면 `batch_job.run_batch()`를 백그라운드 daemon 스레드로 즉시 실행
+- `Restart=always` systemd 설정으로 인한 재시작 시 중복 실행 방지 (오늘 briefing 있으면 스킵)
+- 배포 후 별도 수동 실행 없이 서비스 재시작만으로 오늘치 브리핑 자동 생성됨
 
 ---
 

@@ -32,9 +32,9 @@ pytest -q
 | `test_config.py` | `config.py` | TC-37 WATCHLIST 튜플 검증, TC-38 get_env 값·RuntimeError |
 | `test_auth_helpers.py` | `auth.py` | bcrypt 해시·검증, 틀린 비밀번호 거부 |
 
-**결과: 9개 파일 / 모든 외부 API mock 처리 / pytest -q green**
+**결과: 10개 파일 / 43 케이스 / 모든 외부 API mock 처리 / 43 passed in 1.65s**
 
-> 실행 결과 캡처본: `docs/pytest_result.txt` (별도 저장 필요)
+> 실행 결과 전문: `docs/pytest_result.txt`
 
 ---
 

@@ -135,6 +135,18 @@ pytest -q
 - **병렬화**: 독립적인 2개 이상 작업은 한 번에 병렬 호출. 빌드/테스트는 `run_in_background`.
 - **계획 우선**: 새 기능·다단계 작업은 먼저 계획(plan)을 세운 뒤 실행한다.
 
+### 유지보수 시나리오별 에이전트 라우팅
+
+| 상황 | 라우팅 |
+|------|--------|
+| **배치 실패 / 브리핑 미생성** | `infrastructure-lead`로 `/srv/finvoice/logs/batch.log` + `journalctl -u finvoice` 확인 → 원인 파악 후 `systematic-debugging` |
+| **서버에 코드 업데이트 반영** | `infrastructure-lead` 점검표 작성 → 파일 업로드(paramiko) → `systemctl restart finvoice` → HTTP 200 확인 순서 준수 |
+| **DB 스키마 변경** | `scripts/migrate_auth.py` 패턴으로 마이그레이션 스크립트 별도 작성 → 로컬 검증 → 서버 실행. `init_db.sql`도 함께 업데이트. |
+| **API 키 만료 / 교체** | 서버의 `/srv/finvoice/.env`를 paramiko로 직접 수정 → `systemctl restart finvoice`. 새 키를 소스·커밋에 절대 포함하지 않음(§8). |
+| **서비스 500 오류** | `journalctl -u finvoice -n 50` 로그 확인 → `.env` 값 누락·오타 여부 점검 → `security-reviewer`로 자격증명 노출 여부 재확인 |
+| **Finnhub 429 / NCP API 한도** | 재시도 없이 skip+로그가 정상 동작. 로그에서 해당 종목 실패 확인 후 다음 배치 때 자동 재처리됨. 수동 개입 불필요. |
+| **TTS·Object Storage 실패** | `audio_url=None` 저장 → 텍스트만 표시(비치명적). 로그 확인 후 필요 시 `ncloud-architect`로 Object Storage 접근 설정 점검. |
+
 ---
 
 ## 7. 서버 반영 규칙

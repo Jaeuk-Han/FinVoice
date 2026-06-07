@@ -77,6 +77,95 @@
 
 ---
 
+## 8. 슬라이드 07 다이어그램 개선 — 실제 데이터 흐름 (코드 기반)
+
+> 현재 슬라이드 07의 "서비스 연결 구조"가 `Server → 3개 화살표` 수준으로 단순하여 -3점 요인.
+> 아래 내용을 바탕으로 각 화살표에 **요청 형식 · 응답 데이터**를 병기하면 AI·클라우드 활용 점수 개선 가능.
+
+---
+
+### 실제 데이터 흐름 (pipeline/ 코드 직접 추출)
+
+```
+① Finnhub (외부)
+   GET /company-news?symbol=AAPL&from=...&to=...&token=...
+   └→ [{ headline, summary, url, source, datetime }] × N건
+      ↓ parse_articles() → url_hash 중복 제거 → 최대 5건 슬라이싱
+
+② NCP Papago
+   POST https://papago.apigw.ntruss.com/nmt/v1/translation
+   Header: X-NCP-APIGW-API-KEY-ID / X-NCP-APIGW-API-KEY
+   Body:   source=en, target=ko, text=기사제목+본문 (≤4,500자)
+   └→ translatedText (한국어)
+      ↓ 각 기사에 title_ko, body_ko 추가 (in-place)
+
+③ CLOVA Studio HCX-003
+   POST https://clovastudio.stream.ntruss.com/v1/chat-completions/HCX-003
+   Header: Authorization: Bearer {CLOVA_STUDIO_API_KEY}
+           X-NCP-CLOVASTUDIO-REQUEST-ID: {uuid}
+   Body:   messages=[system, user], maxTokens=500, temperature=0.3
+   └→ { "summary": "한국어 3~5문장", "sentiment": "positive|neutral|negative" }
+
+④ CLOVA Voice
+   POST https://naveropenapi.apigw.ntruss.com/tts-premium/v1/tts
+   Header: X-NCP-APIGW-API-KEY-ID / X-NCP-APIGW-API-KEY
+   Body:   speaker=nara, format=mp3, text=요약문 (≤1,900자)
+   └→ mp3 binary (bytes)
+
+⑤ Object Storage (S3 호환)
+   boto3 PUT → endpoint: NCP_OS_ENDPOINT
+               bucket:   NCP_OS_BUCKET (stock-briefing-audio)
+               key:      audio/{item_date}/{symbol}.mp3
+               ACL:      public-read
+   └→ 공개 URL: {endpoint}/{bucket}/audio/{date}/{symbol}.mp3
+
+⑥ Cloud DB for MySQL
+   [캐시 조회] SELECT briefing_item WHERE symbol=? AND item_date=?
+   └→ 히트 시 파이프라인 건너뜀 (즉시 반환)
+   [결과 저장] INSERT briefing → INSERT briefing_item (summary_ko, sentiment, audio_url)
+              INSERT article × N건
+```
+
+---
+
+### 슬라이드 07 다이어그램 개선안 (Claude Design 전달용)
+
+현재 다이어그램:
+```
+Server FastAPI → Cloud DB for MySQL
+               → NCP AI · Papago / CLOVA
+               → Object Storage · mp3
+```
+
+개선 다이어그램 (화살표에 데이터 레이블 추가):
+```
+                  ┌─────────────────────────────────────────────────────────┐
+Finnhub ─────────▶│                  Server (FastAPI)                       │
+뉴스 JSON          │                                                         │
+                  │  fetch → translate → summarize → tts → upload           │
+                  └──────┬────────────┬──────────────────┬──────────────────┘
+                         │            │                  │
+          캐시 조회·결과 저장 │  번역·요약·음성 요청 │       mp3 PUT │
+          (SQL CRUD)     │  (HTTPS REST API)  │  (S3 호환 API) │
+                         ▼            ▼                  ▼
+                   Cloud DB      NCP AI 서비스      Object Storage
+                   for MySQL     Papago / CLOVA     stock-briefing-audio
+                                 Studio / Voice     → 공개 재생 URL
+```
+
+**화살표별 핵심 표기 (슬라이드에 작게 병기 권장)**
+
+| 화살표 | 표기 내용 |
+|--------|-----------|
+| Finnhub → Server | `GET /company-news · JSON 배열` |
+| Server → Cloud DB | `SELECT(캐시) / INSERT(저장) · PyMySQL` |
+| Server → Papago | `POST · text≤4,500자 · translatedText 반환` |
+| Server → CLOVA Studio | `POST · messages+temperature=0.3 · JSON {summary, sentiment}` |
+| Server → CLOVA Voice | `POST · text≤1,900자 · speaker=nara · mp3 binary` |
+| Server → Object Storage | `S3 PUT · public-read ACL · 공개 URL 반환` |
+
+---
+
 ## 7. 보안상 지워야 할 텍스트나 이미지
 
 | 위치 | 내용 | 조치 |

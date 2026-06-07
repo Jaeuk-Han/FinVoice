@@ -14,12 +14,16 @@
 
 ## 2. 대상 사용자와 핵심 기능
 
-- **대상 사용자**: 로그인 없이 누구나 접속하는 익명 사용자(모두 같은 브리핑을 봄). 회원/개인화 없음(YAGNI).
+- **대상 사용자**:
+  - **비로그인**: 누구나 접속 가능. 고정 관심종목(WATCHLIST) 브리핑 열람·검색만 가능.
+  - **로그인**: 회원가입/로그인 후 개인 관심종목(최대 5개) 편집 가능. Finnhub에 존재하는 임의 종목 검색 허용.
 - **핵심 기능**
-  1. **정기 브리핑(배치)**: 매일 정해진 시각에 시장 전반 + 고정 관심종목 뉴스를 자동 수집·번역·요약·음성화.
-  2. **온디맨드 검색**: 고정 관심종목 중 하나를 검색하면 당일 캐시가 있으면 즉시 반환, 없으면 같은 파이프라인을 즉석 실행.
-  3. **2단 구성**: ① 시장 전반 요약(B) + ② 종목별 요약(A, 고정 5~8개).
-- **고정 관심종목**: `app/config.py`의 `WATCHLIST`에만 둔다(현재 AAPL, TSLA, NVDA, MSFT, AMZN, GOOGL). DB에 두지 않음.
+  1. **정기 브리핑(배치)**: 매일 정해진 시각에 고정 관심종목 뉴스를 자동 수집·번역·요약·음성화.
+  2. **온디맨드 검색**: 당일 캐시가 있으면 즉시 반환, 없으면 파이프라인 즉석 실행.
+  3. **개인 관심종목 편집**: 로그인 사용자가 최대 5개 종목을 직접 설정. 저장 즉시 백그라운드에서 브리핑 자동 생성.
+  4. **자동 새로고침**: 브리핑 생성 완료 시 프론트 폴링(`/api/today-item-count`)으로 자동 감지·새로고침.
+  5. **실시간 주가 티커바**: 상단에 관심종목 실시간 주가(`/api/quotes`) 표시(60초 캐시).
+- **고정 관심종목**: `app/config.py`의 `WATCHLIST`에만 둔다(현재 AAPL, TSLA, NVDA, MSFT, AMZN, GOOGL). 비로그인 기본값으로 사용.
 - **신뢰성 원칙**: 요약에는 항상 출처 링크를 함께 저장·노출하고, 푸터에 "투자 조언 아님" 면책을 고정한다.
 
 ---
@@ -31,12 +35,13 @@
 
 **구조 요약**
 - `pipeline/` — 공용 파이프라인(핵심): `fetch → translate → summarize → tts`, `runner.process_symbol`이 오케스트레이션.
-- `app/` — FastAPI(`main.py`), 설정(`config.py`), DB(`db.py`), 템플릿/정적파일.
+- `app/` — FastAPI(`main.py`), 설정(`config.py`), DB(`db.py`), 인증(`auth.py`), 템플릿/정적파일.
 - `batch_job.py` — cron 진입점, `pipeline.runner` 호출.
-- `scripts/init_db.sql` — 테이블 생성.
+- `scripts/init_db.sql` — 전체 테이블 생성 DDL.
+- `scripts/migrate_auth.py` — `user` · `user_watchlist` 테이블 추가 마이그레이션.
 
-> **핵심 설계 포인트**: 번역·요약·TTS 로직은 전부 `pipeline/`에만 둔다. `batch_job.py`(자동)와 `/search`(온디맨드)가
-> 같은 `runner`를 호출한다 — "하나의 파이프라인 + 두 진입점". 로직을 양쪽에 중복 작성하지 말 것.
+> **핵심 설계 포인트**: 번역·요약·TTS 로직은 전부 `pipeline/`에만 둔다. `batch_job.py`(배치), `/search`(온디맨드),
+> 워치리스트 저장 후 백그라운드 스레드 — 세 진입점이 모두 같은 `runner`를 호출한다. 로직을 중복 작성하지 말 것.
 
 **실행 명령** (PowerShell 기준; 서버는 동일 명령을 bash로 실행)
 ```powershell
@@ -71,7 +76,7 @@ pytest -q
 | 요약 | **CLOVA Studio (HyperCLOVA X)** | 종목별 여러 기사를 묶어 핵심 요약 + 감성 라벨 산출 | `pipeline/summarize.py` |
 | 음성 | **CLOVA Voice** | 한국어 요약문 → mp3 음성 생성 | `pipeline/tts.py` |
 | 저장 | **Object Storage (S3 호환)** | 생성된 mp3 업로드 후 재생 URL 획득 (boto3) | `pipeline/tts.py` |
-| DB | **Cloud DB for MySQL** | `briefing` / `briefing_item` / `article` 저장·캐시 조회 | `app/db.py`, `scripts/init_db.sql` |
+| DB | **Cloud DB for MySQL** | `briefing` / `briefing_item` / `article` / `user` / `user_watchlist` 저장·캐시 조회 | `app/db.py`, `scripts/init_db.sql` |
 | 서버 | **Server (VM, Ubuntu)** | uvicorn 웹앱 + crontab 배치 실행 호스트 | 배포 대상 |
 | 인증 | **API Gateway 키** | Papago/Voice 등 NCP API 공통 인증 헤더 | `.env`의 `NCP_APIGW_*` |
 | 외부 | 영어 금융뉴스 API(Finnhub 등) | 원본 뉴스 수집(NCP 아님, 무료 티어 한도 주의) | `pipeline/fetch.py` |
@@ -85,14 +90,17 @@ pytest -q
 ## 5. Claude Design 참고 화면 목록과 디자인 톤
 
 **화면 목록** (`app/templates/`, `app/static/style.css`)
-1. **목록 페이지** (`/`, `list.html`) — 날짜별 브리핑 목록 + 상단 종목 검색 폼.
+1. **목록 페이지** (`/`, `list.html`) — 날짜별 브리핑 목록 + 상단 종목 검색 폼 + 실시간 주가 티커바.
 2. **상세 페이지** (`/briefing/{id}`, `detail.html`) — 종목별 요약 카드(회사명·심볼·감성 배지·요약문·음성 플레이어·출처 토글).
 3. **검색 결과** (`POST /search`) — 상세 페이지 템플릿 재사용(단일 종목 카드).
+4. **로그인** (`/login`, `login.html`) — 이메일·비밀번호 입력, 오류 메시지 인라인 표시.
+5. **회원가입** (`/register`, `register.html`) — 이메일·비밀번호 입력, 중복 이메일 오류 처리.
+6. **관심종목 편집** (`/watchlist/edit`, `watchlist_edit.html`) — 칩(chip) UI로 최대 5개 종목 추가·삭제·저장.
 
 **디자인 톤**
 - **미니멀·정보 중심**: 군더더기 없는 단일 컬럼(`max-width: 760px`), system-ui 폰트. 화려한 장식보다 가독성 우선.
 - **카드형 종목 블록**: 옅은 회색 보더 + 라운드(8px) 카드로 종목을 구분.
-- **감성 색상 규칙**: positive `#0a0` / negative `#c00` / neutral `#888` (`style.css`의 `.s-*` 유지).
+- **감성 색상 규칙**: positive `#00c471` / negative `#f04452` / neutral `#8c919e` (`style.css`의 `.s-*` 유지).
 - **신뢰성 단서**: 출처 링크는 `<details>`로 접어두되 항상 노출, 푸터 면책 문구 고정.
 - 디자인 변경 시 기존 클래스 규칙(`.s-positive` 등)과 한국어 UI 문구 톤을 유지하고, 외부 링크는 `rel="noopener noreferrer"`를 반드시 붙인다.
 
@@ -102,7 +110,7 @@ pytest -q
 
 | 항목 | 기준 |
 |------|------|
-| **주요 사용자** | 로그인 없이 접속하는 익명 사용자. 빠르게 "오늘 시장/관심종목이 어땠는지"를 읽거나 듣고 싶어 함. 모두 같은 브리핑을 봄(개인화 없음). |
+| **주요 사용자** | ① 비로그인: 빠르게 "오늘 시장/관심종목이 어땠는지"를 읽거나 듣고 싶어 함. 고정 종목 브리핑만 열람. ② 로그인: 관심종목을 직접 설정하고 개인화된 티커바·브리핑을 원함. |
 | **첫 화면에서 바로 보여야 하는 것** | ① 가장 최근(오늘) 브리핑 진입점, ② 종목 심볼 검색 폼, ③ 날짜별 브리핑 목록. "투자 조언 아님" 면책은 항상 보이게. |
 | **입력 화면에 필요한 필드** | 종목 심볼 1개(text, 예: `AAPL`). 대문자 자동 정규화, 지원 종목 안내(placeholder/힌트), 제출 버튼 1개. 그 외 필드 없음(YAGNI). |
 | **결과 화면에 필요한 정보** | 날짜·종목(회사명+심볼), 감성 배지(positive/neutral/negative), 한국어 요약문, 음성 플레이어(있을 때만), 출처 링크(접이식), 면책 푸터. |

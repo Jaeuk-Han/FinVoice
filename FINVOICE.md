@@ -122,7 +122,7 @@
 - NCP Papago NMT로 영어 제목·본문 발췌 → 한국어 변환
 - 엔드포인트: `https://papago.apigw.ntruss.com/nmt/v1/translation`
 - 번역 실패 시 영어 원문으로 진행 (부분 성공 허용)
-- 인증: `NCP_APIGW_ACCESS_KEY` + `NCP_APIGW_SECRET_KEY` (HMAC-SHA256)
+- 인증: `X-NCP-APIGW-API-KEY-ID: NCP_APIGW_KEY_ID` + `X-NCP-APIGW-API-KEY: NCP_APIGW_KEY`
 
 ### 3-3. Summarize (`pipeline/summarize.py`)
 - NCP CLOVA Studio (HyperCLOVA X)로 여러 기사를 종목별 한국어 요약문 생성
@@ -145,10 +145,10 @@
 
 | 서비스 | 역할 | 인증 방식 | 환경변수 |
 |--------|------|-----------|----------|
-| **Papago NMT** | 영→한 번역 | APIGW HMAC | `NCP_APIGW_ACCESS_KEY`, `NCP_APIGW_SECRET_KEY` |
+| **Papago NMT** | 영→한 번역 | APIGW API Key 헤더 | `NCP_APIGW_KEY_ID`, `NCP_APIGW_KEY` |
 | **CLOVA Studio** | 요약 + 감성 분석 | Bearer Token | `CLOVA_STUDIO_API_KEY` |
-| **CLOVA Voice** | 한국어 TTS → mp3 | APIGW HMAC | `NCP_APIGW_VOICE_ACCESS_KEY` (없으면 공용 키 폴백) |
-| **Object Storage** | mp3 저장 · 공개 URL | S3 AccessKey/Secret | `NCP_S3_ACCESS_KEY`, `NCP_S3_SECRET_KEY`, `NCP_S3_BUCKET`, `NCP_S3_ENDPOINT` |
+| **CLOVA Voice** | 한국어 TTS → mp3 | APIGW API Key 헤더 | `NCP_VOICE_KEY_ID`, `NCP_VOICE_KEY` (미설정 시 Papago 키로 폴백) |
+| **Object Storage** | mp3 저장 · 공개 URL | S3 AccessKey/Secret | `NCP_OS_ACCESS_KEY`, `NCP_OS_SECRET_KEY`, `NCP_OS_BUCKET`, `NCP_OS_ENDPOINT` |
 | **Cloud DB MySQL** | 브리핑·사용자·워치리스트 저장·조회 | 사용자/비밀번호 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` |
 | **Server (VM)** | uvicorn 웹앱 + cron 배치 | SSH 키 | — |
 
@@ -195,6 +195,7 @@ proj/
 ├── requirements.txt
 ├── .env.example         # 환경변수 키 목록 (값 없음, 커밋 가능)
 ├── CLAUDE.md            # Claude 작업 안내서
+├── MILESTONE.md         # 기능 구현 마일스톤 기록
 ├── SERVER_RUNBOOK.md    # 서버 배포·운영 절차
 └── FINVOICE.md          # 이 문서
 ```
@@ -284,15 +285,15 @@ user_watchlist
 |--------|------|
 | `SESSION_SECRET` | Starlette 세션 서명 키 (운영 환경에서 반드시 강력한 랜덤 문자열 사용) |
 | `NEWS_API_KEY` | Finnhub API 키 |
-| `NCP_APIGW_ACCESS_KEY` | NCP API Gateway 공용 Access Key |
-| `NCP_APIGW_SECRET_KEY` | NCP API Gateway 공용 Secret Key |
-| `CLOVA_STUDIO_API_KEY` | CLOVA Studio (HyperCLOVA X) Bearer 토큰 |
-| `CLOVA_STUDIO_REQUEST_ID` | CLOVA Studio 요청 ID |
-| `NCP_APIGW_VOICE_ACCESS_KEY` | CLOVA Voice 전용 키 (없으면 공용 키 폴백) |
-| `NCP_S3_ACCESS_KEY` | Object Storage Access Key |
-| `NCP_S3_SECRET_KEY` | Object Storage Secret Key |
-| `NCP_S3_BUCKET` | 버킷 이름 |
-| `NCP_S3_ENDPOINT` | Object Storage 엔드포인트 URL |
+| `NCP_APIGW_KEY_ID` | NCP Papago Application Client ID |
+| `NCP_APIGW_KEY` | NCP Papago Application Client Secret |
+| `NCP_VOICE_KEY_ID` | CLOVA Voice 전용 Application Client ID (선택 — 미설정 시 `NCP_APIGW_KEY_ID` 폴백) |
+| `NCP_VOICE_KEY` | CLOVA Voice 전용 Application Client Secret (선택 — 미설정 시 `NCP_APIGW_KEY` 폴백) |
+| `CLOVA_STUDIO_API_KEY` | CLOVA Studio (HyperCLOVA X) Bearer 토큰 (`nv-` 로 시작) |
+| `NCP_OS_ACCESS_KEY` | Object Storage Access Key (NCP 계정 인증키) |
+| `NCP_OS_SECRET_KEY` | Object Storage Secret Key |
+| `NCP_OS_BUCKET` | Object Storage 버킷 이름 |
+| `NCP_OS_ENDPOINT` | Object Storage 엔드포인트 URL (예: `https://kr.object.ncloudstorage.com`) |
 | `DB_HOST` | Cloud DB 호스트 |
 | `DB_PORT` | Cloud DB 포트 (기본 3306) |
 | `DB_USER` | DB 사용자 |
@@ -326,7 +327,7 @@ pytest -q
 
 **cron 등록 예시** (서버):
 ```cron
-0 7 * * 1-5 cd /home/ubuntu/finvoice && python batch_job.py >> logs/batch.log 2>&1
+0 7 * * 1-5 cd /srv/finvoice && .venv/bin/python batch_job.py >> logs/batch.log 2>&1
 ```
 
 ---

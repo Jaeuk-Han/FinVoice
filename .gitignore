@@ -7,3 +7,7 @@ logs/
 
 .omc/
 .claude/
+
+# 자격증명 포함 로컬 전용 스크립트
+scripts/deploy.py
+scripts/_*.py

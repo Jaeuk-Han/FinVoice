@@ -14,9 +14,10 @@ fetch → translate → summarize → tts
 - `translate.py`: Papago로 영어 기사 → 한국어 번역
 - `summarize.py`: CLOVA Studio(HyperCLOVA X)로 종목별 요약 + 감성 라벨(positive/neutral/negative) 산출
 - `tts.py`: CLOVA Voice로 한국어 요약문 → mp3 생성, NCP Object Storage 업로드 후 재생 URL 반환
+  - CLOVA Voice 전용 키(`NCP_VOICE_KEY_ID/KEY`) 미설정 시 Papago 키(`NCP_APIGW_KEY_ID/KEY`)로 자동 폴백 (`config.get_env_or()`)
 - `runner.process_symbol`: 위 4단계를 오케스트레이션하는 단일 진입점
 
-**설계 원칙**: `batch_job.py`(배치)와 `/search`(온디맨드) 두 진입점이 동일한 `runner`를 호출 — 로직 중복 없음.
+**설계 원칙**: `batch_job.py`(배치), `/search`(온디맨드), 워치리스트 저장 후 백그라운드 스레드 — 세 진입점이 동일한 `runner`를 호출하여 로직 중복 없음.
 
 ---
 
@@ -101,6 +102,7 @@ Starlette `SessionMiddleware`(서명 쿠키) 기반 인증 구현.
 Ubuntu 24.04 VM에 systemd 서비스로 배포했다.
 
 - paramiko 기반 Python 배포 스크립트로 SFTP 업로드 + 원격 명령 자동화
+- 배포 경로: `/srv/finvoice`, cron 실행: `.venv/bin/python batch_job.py`
 - `.venv` 생성, `pip install`, `.env` 설정, DB 마이그레이션 원스텝 실행
 - systemd `finvoice.service`로 서버 재시작 시 자동 복구
 - `SESSION_SECRET` 배포 시 자동 생성(`secrets.token_hex(32)`)

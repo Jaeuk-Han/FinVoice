@@ -1,164 +1,106 @@
-# FinVoice 개발 시행착오 기록
-
-개발~배포 과정에서 실제로 겪은 트러블슈팅 로그.
-같은 삽질을 반복하지 않기 위해 남긴다.
+# FinVoice 기능 구현 마일스톤
 
 ---
 
-## 1. bcrypt 버전 충돌
+## M1. 파이프라인 기반 구조 설계
 
-**증상**: `passlib`로 비밀번호 해시 시 `AttributeError: module 'bcrypt' has no attribute '__about__'`
+`pipeline/` 디렉토리 아래 4단계 파이프라인을 구축했다.
 
-**원인**: `passlib==1.7.4`는 `bcrypt 4.x / 5.x`와 호환되지 않음. pip 최신 버전은 자동으로 bcrypt 5.x를 설치.
-
-**해결**: `requirements.txt`에 버전 고정
 ```
-passlib[bcrypt]==1.7.4
-bcrypt==3.2.2
+fetch → translate → summarize → tts
 ```
+
+- `fetch.py`: Finnhub API로 종목 뉴스 수집, 회사명 조회(`lookup_company`)
+- `translate.py`: Papago로 영어 기사 → 한국어 번역
+- `summarize.py`: CLOVA Studio(HyperCLOVA X)로 종목별 요약 + 감성 라벨(positive/neutral/negative) 산출
+- `tts.py`: CLOVA Voice로 한국어 요약문 → mp3 생성, NCP Object Storage 업로드 후 재생 URL 반환
+- `runner.process_symbol`: 위 4단계를 오케스트레이션하는 단일 진입점
+
+**설계 원칙**: `batch_job.py`(배치)와 `/search`(온디맨드) 두 진입점이 동일한 `runner`를 호출 — 로직 중복 없음.
 
 ---
 
-## 2. PowerShell 한국어 인코딩 오류
+## M2. 배치 브리핑 자동 생성
 
-**증상**: paramiko로 서버 명령 출력을 print할 때 `UnicodeEncodeError: 'charmap' codec can't encode`
+`batch_job.py`를 crontab 진입점으로 구현했다.
 
-**원인**: Windows PowerShell 기본 인코딩(cp949)이 UTF-8 출력을 처리 못함.
-
-**해결**: 출력 시 ASCII로 변환
-```python
-print(o.encode('ascii', errors='replace').decode())
-```
+- 매일 정해진 시각에 `config.WATCHLIST`의 고정 종목 전체를 순회
+- 당일 캐시(`find_cached_item`) 존재 시 재처리 생략
+- 한 종목 실패가 전체 배치를 중단하지 않도록 `try/except`로 부분 성공 허용
+- `briefing` + `briefing_item` + `article` 3단계 DB 구조로 날짜별 이력 관리
 
 ---
 
-## 3. python3-venv 패키지 이름 오류
+## M3. 온디맨드 검색
 
-**증상**: 서버에서 `apt-get install python3.12-venv` 실패
+`POST /search` 엔드포인트에서 즉석 브리핑을 생성한다.
 
-**원인**: Ubuntu 24.04에서 패키지명은 `python3.12-venv`가 아니라 `python3-venv`. 또한 `apt-get update` 없이 설치 시도하면 패키지를 못 찾음.
-
-**해결**:
-```bash
-apt-get update -qq
-apt-get install -y python3-venv python3-pip
-```
+- 비로그인 사용자: `WATCHLIST` 고정 종목만 허용
+- 로그인 사용자: Finnhub `lookup_company`로 임의 종목 검색 허용
+- 당일 캐시 있으면 파이프라인 생략, 즉시 반환
+- 결과는 `detail.html` 템플릿 재사용(단일 종목 카드)
 
 ---
 
-## 4. 숨김 파일(.env.example) SFTP 업로드 누락
+## M4. 회원가입 / 로그인 / 로그아웃
 
-**증상**: 서버에 `.env.example`이 없어서 `.env` 생성 단계 실패
+Starlette `SessionMiddleware`(서명 쿠키) 기반 인증 구현.
 
-**원인**: deploy 스크립트에서 `.`으로 시작하는 파일을 일괄 제외했기 때문.
-
-**해결**: `upload_dir` 함수의 일반 루프와 별도로 명시적으로 업로드
-```python
-sftp.put('.env.example', REMOTE + '/.env.example')
-```
-
----
-
-## 5. 마이그레이션 스크립트 서버 미전송
-
-**증상**: 서버에서 `python scripts/migrate_auth.py` 실행 시 파일 없음 오류
-
-**원인**: `EXCLUDE_FILES`에 `deploy.py`만 넣으려다 `scripts/` 전체가 빠짐. `migrate_auth.py`도 같이 누락.
-
-**해결**: `EXCLUDE_FILES`를 파일명 단위로 정확히 지정하고, `scripts/` 디렉토리는 `EXCLUDE_DIRS`에서 제거.
+- `app/auth.py`: `passlib[bcrypt]`로 비밀번호 해시·검증 (`bcrypt==3.2.2` 고정 — 4.x 이상 passlib 비호환)
+- `app/db.py`: `create_user`, `get_user_by_email` CRUD
+- 라우트: `GET/POST /register`, `GET/POST /login`, `POST /logout`
+- 세션에 `user_id`, `user_email` 저장
+- 템플릿 헤더에 로그인 상태에 따라 다른 UI 표시
 
 ---
 
-## 6. 예외 핸들러에서 Jinja2 UndefinedError
+## M5. 개인 관심종목 편집
 
-**증상**: 존재하지 않는 URL 접근 시 500 Internal Server Error (원래 404여야 함)
+로그인 사용자가 최대 5개 종목을 직접 설정할 수 있다.
 
-**원인**: `html_exception_handler`가 `list.html`을 렌더링할 때 `user_email`, `watchlist_meta` 컨텍스트를 넘기지 않아 템플릿에서 변수 참조 오류 발생.
-
-**해결**: 예외 핸들러에도 필수 컨텍스트 전달
-```python
-async def html_exception_handler(request, exc):
-    return templates.TemplateResponse(request, "list.html", {
-        "briefings": [], "supported": SUPPORTED, "today": ...,
-        "error": msg,
-        "user_email": request.session.get("user_email"),
-        "watchlist_meta": list(templates.env.globals["WATCHLIST_META"]),
-    }, status_code=exc.status_code)
-```
+- `user_watchlist` 테이블에 `(user_id, symbol, company)` 저장
+- `GET/POST /watchlist/edit` 라우트
+- 프론트: 칩(chip) UI로 종목 추가/삭제, 저장 시 hidden input으로 서버 전송
+- 존재하지 않는 종목 입력 시 Finnhub으로 검증 후 오류 반환
 
 ---
 
-## 7. 관심종목 커스텀 주가 미표시
+## M6. 관심종목 저장 시 자동 브리핑 생성
 
-**증상**: 사용자가 관심종목을 편집한 뒤 상단 티커바에 주가가 `—`로 표시됨
+워치리스트 저장 직후 백그라운드에서 오늘 브리핑을 미리 생성한다.
 
-**원인**: `/api/quotes` 엔드포인트가 항상 고정 `SUPPORTED` 목록만 조회. 프론트에서 `?symbols=` 파라미터를 넘겼지만 서버가 무시.
-
-**해결**: 엔드포인트에서 `symbols` 쿼리 파라미터 처리 추가
-```python
-@app.get("/api/quotes")
-def api_quotes(symbols: str = ""):
-    sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()] if symbols else SUPPORTED
-```
+- `threading.Thread(daemon=True)`로 비동기 처리 — 사용자는 기다리지 않고 홈으로 리다이렉트
+- `briefing` 레코드를 먼저 생성한 뒤 `briefing_item`을 연결 — 히스토리 목록에 정상 노출
+- 당일 캐시 이미 있으면 재생성 생략
 
 ---
 
-## 8. 관심종목 저장 후 브리핑 히스토리 미기록
+## M7. 브리핑 생성 완료 자동 새로고침
 
-**증상**: 워치리스트 편집 후 백그라운드에서 리포트가 생성되어도 홈 히스토리 목록에 안 보임
+관심종목 저장 후 `/?generating=1`으로 리다이렉트되면 폴링을 시작한다.
 
-**원인**: `_bg_generate_watchlist`에서 `briefing_id=None`으로 `insert_item`을 호출. `briefing` 테이블 레코드가 없어서 `list_briefings` 조회에 안 잡힘.
-
-**해결**: 아이템 삽입 전 `insert_briefing`으로 briefing 레코드 먼저 생성
-```python
-briefing_id = db.insert_briefing(cur, today, None, None)
-conn.commit()
-# ... process_symbol ...
-item_id = db.insert_item(cur, briefing_id, ...)
-```
+- `/api/today-item-count` 엔드포인트: 당일 `briefing_item` 수 반환
+- 프론트에서 3초 간격으로 폴링, 카운트 증가 시 자동 새로고침
+- 3분 후 타임아웃으로 무한 폴링 방지
 
 ---
 
-## 9. PowerShell에서 Python 인라인 실행 시 따옴표 충돌
+## M8. 실시간 주가 티커바
 
-**증상**: `python -c "..."` 안에 파이썬 문자열이 있으면 PowerShell이 따옴표를 잘못 파싱
+홈 상단에 관심종목 실시간 주가를 표시한다.
 
-**원인**: PowerShell here-string(`@'...'@`)도 Python 코드 안의 `<`, `>`, `*` 연산자를 예약어로 해석.
-
-**해결**: 인라인 실행 대신 `.py` 파일로 저장 후 실행. 복잡한 스크립트는 반드시 파일로.
-
----
-
-## 10. paramiko 미설치
-
-**증상**: 배포 스크립트 실행 시 `ModuleNotFoundError: No module named 'paramiko'`
-
-**원인**: 시스템 Python이 아닌 프로젝트 `.venv`에서 실행했는데 paramiko가 `requirements.txt`에 없음 (배포 전용 도구라 앱 의존성이 아님).
-
-**해결**: 배포 시에만 별도 설치
-```powershell
-.venv\Scripts\pip install paramiko
-```
+- `/api/quotes?symbols=` 엔드포인트: Finnhub 주가 조회, 60초 서버 캐시
+- 로그인 사용자: 개인 워치리스트 심볼로 조회
+- 비로그인: 고정 `WATCHLIST` 심볼로 조회
+- 프론트: 페이지 로드 시 한 번 fetch, `▲/▼` + 등락률 표시
 
 ---
 
-## 11. 자격증명 스크립트 gitignore 누락
+## M9. NCP 서버 배포
 
-**증상**: `git status`에 `deploy.py`, `_update_env.py` 등이 untracked으로 표시 — 실수로 `git add .` 하면 API 키·DB 비밀번호가 그대로 올라갈 뻔.
+Ubuntu 24.04 VM에 systemd 서비스로 배포했다.
 
-**해결**: `.gitignore`에 명시적으로 추가
-```
-scripts/deploy.py
-scripts/_*.py
-```
-
----
-
-## 12. SSH remote → HTTPS 전환
-
-**증상**: `git push` 시 `Permission denied (publickey)` — GitHub에 SSH 키 미등록.
-
-**해결**: remote URL을 HTTPS로 변경
-```bash
-git remote set-url origin https://github.com/Jaeuk-Han/FinVoice.git
-```
+- paramiko 기반 Python 배포 스크립트로 SFTP 업로드 + 원격 명령 자동화
+- `.venv` 생성, `pip install`, `.env` 설정, DB 마이그레이션 원스텝 실행
+- systemd `finvoice.service`로 서버 재시작 시 자동 복구
+- `SESSION_SECRET` 배포 시 자동 생성(`secrets.token_hex(32)`)
